@@ -7,6 +7,6 @@ daq_setup_environment()
 
 find_package(appfwk REQUIRED)
 
-daq_add_plugin(TriggerDecisionGenerator duneDAQModule	     LINK_LIBRARIES appfwk::appfwk)
+daq_add_plugin(TriggerDecisionEmulator duneDAQModule	     LINK_LIBRARIES appfwk::appfwk)
 
 daq_install()
