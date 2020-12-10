@@ -14,6 +14,10 @@
 #ifndef TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
 #define TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
 
+// TODO: Point this to the real header containing message class
+// definitions once it becomes available
+#include "trigemu/Messages_dummy.hpp"
+
 #include "appfwk/DAQModule.hpp"
 #include "appfwk/DAQSink.hpp"
 #include "appfwk/DAQSource.hpp"
@@ -54,13 +58,68 @@ public:
 
 private:
   // Commands
-  void do_start(const nlohmann::json& obj); 
+  void do_configure(const nlohmann::json& obj); 
+  void do_start(const nlohmann::json& obj);
   void do_stop(const nlohmann::json& obj);
   void do_pause(const nlohmann::json& obj);
   void do_resume(const nlohmann::json& obj);
+
+  void do_work(std::atomic<bool>& running_flag);
+
+  // Estimate what the current timestamp is, based on what we've seen
+  // in the TimeSync queue
+  df::timestamp_t estimate_current_timestamp();
+
+  // Wait until our estimate of the current timestamp reaches
+  // `timestamp`, or `running_flag` is set to false, whichever occurs
+  // first. Return true if timestamp is reached, false if
+  // we returned because `running_flag` was set to false
+  bool wait_until_timestamp(df::timestamp_t timestamp, std::atomic<bool>& running_flag);
+
+  // Are we inhibited from sending triggers?
+  bool triggers_are_inhibited();
+
+  // Send a trigger decision
+  void send_trigger_decision(df::TriggerDecision decision);
+  
+  dunedaq::appfwk::ThreadHelper thread_;
+
+  // Queue sources and sinks
+  std::vector<std::unique_ptr<appfwk::DAQSource<df::TimeSync>>> time_sync_sources_;
+  std::unique_ptr<appfwk::DAQSource<df::TriggerInhibit>> trigger_inhibit_source_;
+  std::unique_ptr<appfwk::DAQSink<df::TriggerDecision>> trigger_decision_sink_;
+
+  // Variables controlling how we produce triggers
+
+  // Triggers are produced for timestamps:
+  //    timestamp_offset_ + n*timestamp_period_;
+  // with n integer
+  df::timestamp_t timestamp_offset_;
+  df::timestamp_t timestamp_period_;
+
+  df::timestamp_diff_t trigger_window_offset_;
+  df::timestamp_t trigger_window_width_;
+  
+  // The link IDs which should be read out in the trigger decision
+  std::vector<int> active_link_ids_;
+
+  // If false, all links are read at each trigger. If true, we read
+  // out just one link for each trigger, cycling through
+  // active_link_ids_
+  bool cycle_through_links_;
+
+  // The most recent TimeSync message we've seen
+  df::TimeSync most_recent_timesync_;
+
+  // The most recent inhibit status we've seen (true = inhibited)
+  bool inhibited_;
 };
 } // namespace trigemu
 } // namespace dunedaq
 
 #endif // TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
 
+
+// Local Variables:
+// c-basic-offset: 2
+// End:
