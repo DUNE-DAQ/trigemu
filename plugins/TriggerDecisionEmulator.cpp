@@ -91,7 +91,15 @@ TriggerDecisionEmulator::do_work(std::atomic<bool>& running_flag)
 bool
 TriggerDecisionEmulator::wait_until_timestamp(dfmessages::timestamp_t target_timestamp, std::atomic<bool>& running_flag)
 {
-  while(estimate_current_timestamp()<target_timestamp){
+  while(true){
+    try{
+      if(estimate_current_timestamp()>=target_timestamp) return true;
+    }
+    catch(NoTimeSyncsReceived const& ex){
+      // Warn, but keep waiting
+      ers::warning(ex);
+    }
+
     if(!running_flag.load()) return false;
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -129,12 +137,16 @@ TriggerDecisionEmulator::estimate_current_timestamp()
   while(time_sync_source->can_pop()){
     time_sync_source->pop(most_recent_timesync_);
   }
-  // TODO: Deal with the case where we haven't received a time sync message yet
+
+  if(most_recent_timesync_.DAQTime==INVALID_TIMESTAMP){
+    throw NoTimeSyncsReceived(ERS_HERE);
+  }
+
   using namespace std::chrono;
   // std::chrono is the worst
   auto time_now=static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count());
   if(time_now < most_recent_timesync_.SystemTime){
-    // Something's wrong: time has gone backwards. Throw an appropriate error
+    throw InvalidTimeSync(ERS_HERE);
   }
   auto delta_time=time_now - most_recent_timesync_.SystemTime;
   // TODO: Make the "stale timestamp" time configurable

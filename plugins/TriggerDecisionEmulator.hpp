@@ -2,7 +2,7 @@
  * @file TriggerDecisionEmulator.hpp
  *
  * TriggerDecisionEmulator is a DAQModule that generates trigger decisions
- * for standalone tests. It receives information on the current time and the 
+ * for standalone tests. It receives information on the current time and the
  * availability of the DF to absorb data and forms decisions at a configurable
  * rate and with configurable size.
  *
@@ -16,6 +16,7 @@
 
 // TODO: Point this to the real header containing message class
 // definitions once it becomes available
+#include "dfmessages/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
@@ -25,13 +26,25 @@
 #include "appfwk/DAQSource.hpp"
 #include "appfwk/ThreadHelper.hpp"
 
-#include <ers/Issue.h>
+#include <ers/ers.h>
 
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace dunedaq {
+
+ERS_DECLARE_ISSUE(trigemu,                             // Namespace
+                  NoTimeSyncsReceived,                 // Issue name
+                  "No TimeSync messages received yet", // Message
+                  ERS_EMPTY)
+
+ERS_DECLARE_ISSUE(trigemu,
+                  InvalidTimeSync,
+                  "An invalid TimeSync message was received",
+                  ERS_EMPTY)
+
+
 namespace trigemu {
 
 /**
@@ -60,7 +73,7 @@ public:
 
 private:
   // Commands
-  void do_configure(const nlohmann::json& obj); 
+  void do_configure(const nlohmann::json& obj);
   void do_start(const nlohmann::json& obj);
   void do_stop(const nlohmann::json& obj);
   void do_pause(const nlohmann::json& obj);
@@ -83,7 +96,7 @@ private:
 
   // Send a trigger decision
   void send_trigger_decision(dfmessages::TriggerDecision decision);
-  
+
   dunedaq::appfwk::ThreadHelper thread_;
 
   // Queue sources and sinks
@@ -101,9 +114,9 @@ private:
 
   dfmessages::timestamp_diff_t trigger_window_offset_;
   dfmessages::timestamp_t trigger_window_width_;
-  
+
   // The link IDs which should be read out in the trigger decision
-  std::vector<int> active_link_ids_;
+  std::vector<dfmessages::GeoID> active_link_ids_;
 
   // If false, all links are read at each trigger. If true, we read
   // out just one link for each trigger, cycling through
