@@ -34,11 +34,6 @@
 
 namespace dunedaq {
 
-ERS_DECLARE_ISSUE(trigemu,                             // Namespace
-                  NoTimeSyncsReceived,                 // Issue name
-                  "No TimeSync messages received yet", // Message
-                  ERS_EMPTY)
-
 ERS_DECLARE_ISSUE(trigemu,
                   InvalidTimeSync,
                   "An invalid TimeSync message was received",
