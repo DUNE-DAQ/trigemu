@@ -25,6 +25,7 @@
 #include "appfwk/DAQSink.hpp"
 #include "appfwk/DAQSource.hpp"
 #include "appfwk/ThreadHelper.hpp"
+#include "dfmessages/Types.hpp"
 
 #include <ers/ers.h>
 
@@ -112,8 +113,12 @@ private:
   dfmessages::timestamp_t timestamp_offset_;
   dfmessages::timestamp_t timestamp_period_;
 
+  // The offset and width of the windows to be requested in the trigger
   dfmessages::timestamp_diff_t trigger_window_offset_;
   dfmessages::timestamp_t trigger_window_width_;
+
+  // The trigger type for the trigger requests
+  dfmessages::trigger_type_t trigger_type_;
 
   // The link IDs which should be read out in the trigger decision
   std::vector<dfmessages::GeoID> active_link_ids_;
@@ -128,6 +133,10 @@ private:
 
   // The most recent inhibit status we've seen (true = inhibited)
   bool inhibited_;
+
+  dfmessages::trigger_number_t last_trigger_number_;
+
+  dfmessages::run_number_t run_number_;
 };
 } // namespace trigemu
 } // namespace dunedaq

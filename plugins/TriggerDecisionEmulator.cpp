@@ -8,6 +8,7 @@
  */
 
 #include "TriggerDecisionEmulator.hpp"
+#include "dfmessages/ComponentRequest.hpp"
 #include "dfmessages/Types.hpp"
 #include "ers/ers.h"
 #include "trigemu/Messages_dummy.hpp"
@@ -23,6 +24,7 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   , thread_(std::bind(&TriggerDecisionEmulator::do_work, this, std::placeholders::_1))
   , most_recent_timesync_(INVALID_TIMESTAMP)
   , inhibited_(false)
+  , last_trigger_number_(0)
 {
   register_command("configure", &TriggerDecisionEmulator::do_configure);
   register_command("start", &TriggerDecisionEmulator::do_start);
@@ -48,18 +50,24 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& /* confobj */)
   // * timestamp_offset_
   // * timestamp_period_
   // * cycle_through_links_
+  // * trigger_window_offset_
+  // * trigger_window_width_
+  // * trigger_type_
+  //
+  // ...alternatively, we could just hold a copy of the Conf object as a member variable
 }
 
 void
 TriggerDecisionEmulator::do_start(const nlohmann::json& /*startobj*/)
 {
-    thread_.start_working_thread();
+  // TODO: Set run_number_
+  thread_.start_working_thread();
 }
 
 void
 TriggerDecisionEmulator::do_stop(const nlohmann::json& /*stopobj*/)
 {
-    thread_.stop_working_thread();
+  thread_.stop_working_thread();
 }
 
 void
@@ -77,12 +85,36 @@ TriggerDecisionEmulator::do_work(std::atomic<bool>& running_flag)
 {
   dfmessages::timestamp_t current_timestamp=estimate_current_timestamp();
   dfmessages::timestamp_t next_trigger_timestamp=(current_timestamp/timestamp_period_+1)*timestamp_period_+timestamp_offset_;
+  size_t last_triggered_link=0;
 
   while(running_flag.load()){
     bool wait_success=wait_until_timestamp(next_trigger_timestamp, running_flag);
     if(!wait_success) break;
     if(!triggers_are_inhibited()){
-      send_trigger_decision(dfmessages::TriggerDecision{});
+      dfmessages::TriggerDecision decision;
+      decision.TriggerNumber=last_trigger_number_++;
+      decision.RunNumber=run_number_;
+      decision.TriggerTimestamp=next_trigger_timestamp;
+      decision.TriggerType=trigger_type_;
+      if(cycle_through_links_){
+        size_t next_link=(last_triggered_link+1)%active_link_ids_.size();
+        decision.Components.insert({active_link_ids_[next_link],
+            dfmessages::ComponentRequest{next_trigger_timestamp,
+                                      trigger_window_offset_,
+                                      trigger_window_width_}});
+        last_triggered_link=next_link;
+
+      }
+      else{
+        for(auto const& link: active_link_ids_){
+          decision.Components.insert({link,
+              dfmessages::ComponentRequest{next_trigger_timestamp,
+                                        trigger_window_offset_,
+                                        trigger_window_width_}});
+
+        }
+      }
+      send_trigger_decision(decision);
     }
     next_trigger_timestamp+=timestamp_period_;
   }
@@ -124,9 +156,9 @@ TriggerDecisionEmulator::triggers_are_inhibited()
 
 
 void
-TriggerDecisionEmulator::send_trigger_decision(dfmessages::TriggerDecision /* decision */)
+TriggerDecisionEmulator::send_trigger_decision(dfmessages::TriggerDecision decision)
 {
-
+  trigger_decision_sink_->push(decision);
 }
 
 
