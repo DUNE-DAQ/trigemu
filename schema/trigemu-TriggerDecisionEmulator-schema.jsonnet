@@ -4,12 +4,12 @@ local s = moo.oschema.schema(ns);
 
 local types = {
   linkid: s.number("LinkId", dtype="i4"),
-  links : s.sequence("links", self.linkid),
+  linkvec : s.sequence("LinkVec", self.linkid),
   link_count: s.number("LinkCount", dtype="i4"),
   ticks: s.number("Ticks", dtype="i8"),
   
   conf : s.record("ConfParams", [
-    s.field("links", self.links,
+    s.field("links", self.linkvec,
       doc="List of link identifiers that may be included into trigger decision"),
     s.field("min_links_in_request", self.link_count, 10,
       doc="Minimum number of links to include in the trigger decision"),
