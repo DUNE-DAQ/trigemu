@@ -16,7 +16,9 @@
 
 // TODO: Point this to the real header containing message class
 // definitions once it becomes available
-#include "trigemu/Messages_dummy.hpp"
+#include "dfmessages/TimeSync.hpp"
+#include "dfmessages/TriggerDecision.hpp"
+#include "dfmessages/TriggerInhibit.hpp"
 
 #include "appfwk/DAQModule.hpp"
 #include "appfwk/DAQSink.hpp"
@@ -68,37 +70,37 @@ private:
 
   // Estimate what the current timestamp is, based on what we've seen
   // in the TimeSync queue
-  df::timestamp_t estimate_current_timestamp();
+  dfmessages::timestamp_t estimate_current_timestamp();
 
   // Wait until our estimate of the current timestamp reaches
   // `timestamp`, or `running_flag` is set to false, whichever occurs
   // first. Return true if timestamp is reached, false if
   // we returned because `running_flag` was set to false
-  bool wait_until_timestamp(df::timestamp_t timestamp, std::atomic<bool>& running_flag);
+  bool wait_until_timestamp(dfmessages::timestamp_t timestamp, std::atomic<bool>& running_flag);
 
   // Are we inhibited from sending triggers?
   bool triggers_are_inhibited();
 
   // Send a trigger decision
-  void send_trigger_decision(df::TriggerDecision decision);
+  void send_trigger_decision(dfmessages::TriggerDecision decision);
   
   dunedaq::appfwk::ThreadHelper thread_;
 
   // Queue sources and sinks
-  std::vector<std::unique_ptr<appfwk::DAQSource<df::TimeSync>>> time_sync_sources_;
-  std::unique_ptr<appfwk::DAQSource<df::TriggerInhibit>> trigger_inhibit_source_;
-  std::unique_ptr<appfwk::DAQSink<df::TriggerDecision>> trigger_decision_sink_;
+  std::vector<std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>> time_sync_sources_;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> trigger_inhibit_source_;
+  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> trigger_decision_sink_;
 
   // Variables controlling how we produce triggers
 
   // Triggers are produced for timestamps:
   //    timestamp_offset_ + n*timestamp_period_;
   // with n integer
-  df::timestamp_t timestamp_offset_;
-  df::timestamp_t timestamp_period_;
+  dfmessages::timestamp_t timestamp_offset_;
+  dfmessages::timestamp_t timestamp_period_;
 
-  df::timestamp_diff_t trigger_window_offset_;
-  df::timestamp_t trigger_window_width_;
+  dfmessages::timestamp_diff_t trigger_window_offset_;
+  dfmessages::timestamp_t trigger_window_width_;
   
   // The link IDs which should be read out in the trigger decision
   std::vector<int> active_link_ids_;
@@ -109,7 +111,7 @@ private:
   bool cycle_through_links_;
 
   // The most recent TimeSync message we've seen
-  df::TimeSync most_recent_timesync_;
+  dfmessages::TimeSync most_recent_timesync_;
 
   // The most recent inhibit status we've seen (true = inhibited)
   bool inhibited_;

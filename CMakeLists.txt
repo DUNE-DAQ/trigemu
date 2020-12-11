@@ -6,7 +6,8 @@ find_package(daq-cmake REQUIRED )
 daq_setup_environment()
 
 find_package(appfwk REQUIRED)
+find_package(dfmessages REQUIRED)
 
-daq_add_plugin(TriggerDecisionEmulator duneDAQModule	     LINK_LIBRARIES appfwk::appfwk)
+daq_add_plugin(TriggerDecisionEmulator duneDAQModule	     LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages)
 
 daq_install()
