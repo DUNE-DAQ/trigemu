@@ -9,6 +9,7 @@
 
 #include "TriggerDecisionEmulator.hpp"
 #include "dfmessages/ComponentRequest.hpp"
+#include "dfmessages/TimeSync.hpp"
 #include "dfmessages/Types.hpp"
 #include "ers/ers.h"
 #include "trigemu/Messages_dummy.hpp"
@@ -21,8 +22,6 @@ constexpr dfmessages::timestamp_t INVALID_TIMESTAMP=0xffffffffffffffff;
 
 TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   : DAQModule(name)
-  , thread_(std::bind(&TriggerDecisionEmulator::do_work, this, std::placeholders::_1))
-  , most_recent_timesync_(INVALID_TIMESTAMP)
   , inhibited_(false)
   , last_trigger_number_(0)
 {
@@ -61,13 +60,19 @@ void
 TriggerDecisionEmulator::do_start(const nlohmann::json& /*startobj*/)
 {
   // TODO: Set run_number_
-  thread_.start_working_thread();
+  
+  running_flag_.store(true);
+  threads_.emplace_back(&TriggerDecisionEmulator::estimate_current_timestamp, this);
+  threads_.emplace_back(&TriggerDecisionEmulator::read_inhibit_queue, this);
+  threads_.emplace_back(&TriggerDecisionEmulator::send_trigger_decisions, this);
 }
 
 void
 TriggerDecisionEmulator::do_stop(const nlohmann::json& /*stopobj*/)
 {
-  thread_.stop_working_thread();
+  running_flag_.store(false);
+  for(auto& thread: threads_) thread.join();
+  threads_.clear();
 }
 
 void
@@ -80,17 +85,21 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& /*resumeobj*/)
 {
 }
 
-void
-TriggerDecisionEmulator::do_work(std::atomic<bool>& running_flag)
+void TriggerDecisionEmulator::send_trigger_decisions()
 {
-  dfmessages::timestamp_t current_timestamp=estimate_current_timestamp();
-  dfmessages::timestamp_t next_trigger_timestamp=(current_timestamp/timestamp_period_+1)*timestamp_period_+timestamp_offset_;
+  dfmessages::timestamp_t next_trigger_timestamp=(current_timestamp_estimate_.load()/timestamp_period_+1)*timestamp_period_+timestamp_offset_;
   size_t last_triggered_link=0;
 
-  while(running_flag.load()){
-    bool wait_success=wait_until_timestamp(next_trigger_timestamp, running_flag);
-    if(!wait_success) break;
+  while(true){
+    while(running_flag_.load() &&
+          (current_timestamp_estimate_.load() < next_trigger_timestamp ||
+           current_timestamp_estimate_.load()==INVALID_TIMESTAMP)){
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    if(!running_flag_.load()) break;
+    
     if(!triggers_are_inhibited()){
+
       dfmessages::TriggerDecision decision;
       decision.TriggerNumber=last_trigger_number_++;
       decision.RunNumber=run_number_;
@@ -114,81 +123,62 @@ TriggerDecisionEmulator::do_work(std::atomic<bool>& running_flag)
 
         }
       }
-      send_trigger_decision(decision);
+      trigger_decision_sink_->push(decision);
     }
     next_trigger_timestamp+=timestamp_period_;
   }
-}
 
-bool
-TriggerDecisionEmulator::wait_until_timestamp(dfmessages::timestamp_t target_timestamp, std::atomic<bool>& running_flag)
+}
+  
+void TriggerDecisionEmulator::estimate_current_timestamp()
 {
-  while(true){
-    try{
-      if(estimate_current_timestamp()>=target_timestamp) return true;
+  dfmessages::TimeSync most_recent_timesync{INVALID_TIMESTAMP};
+  current_timestamp_estimate_.store(INVALID_TIMESTAMP);
+  
+  // time_sync_source_ is connected to an MPMC queue with multiple
+  // writers. We read whatever we can off it, and the item with the
+  // largest timestamp "wins"
+  while(running_flag_.load()){
+    // First, update the latest timestamp
+    while(time_sync_source_->can_pop()){
+      dfmessages::TimeSync t{INVALID_TIMESTAMP};
+      time_sync_source_->pop(t);
+      if(most_recent_timesync.DAQTime==INVALID_TIMESTAMP ||
+         t.DAQTime > most_recent_timesync.DAQTime){
+        most_recent_timesync=t;
+      }
     }
-    catch(NoTimeSyncsReceived const& ex){
-      // Warn, but keep waiting
-      ers::warning(ex);
+
+    if(most_recent_timesync.DAQTime!=INVALID_TIMESTAMP){
+      // Update the current timestamp estimate, based on the most recently-read TimeSync
+      using namespace std::chrono;
+      // std::chrono is the worst
+      auto time_now=static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count());
+      if(time_now < most_recent_timesync.SystemTime){
+        throw InvalidTimeSync(ERS_HERE);
+      }
+      auto delta_time=time_now - most_recent_timesync.SystemTime;
+      const uint64_t CLOCK_FREQUENCY_HZ=62500000;
+      current_timestamp_estimate_.store(most_recent_timesync.DAQTime + delta_time*CLOCK_FREQUENCY_HZ/1000000);
     }
 
-    if(!running_flag.load()) return false;
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  return true;
+
 }
-
-
-bool
-TriggerDecisionEmulator::triggers_are_inhibited()
+  
+void TriggerDecisionEmulator::read_inhibit_queue()
 {
-  // If there are more messages on the inhibit queue, set the current
-  // inhibit status to that of the most recent message on the
-  // queue. If there are no messages, the status remains as it was
-  // before
-  while(trigger_inhibit_source_->can_pop()){
-    dfmessages::TriggerInhibit ti;
-    trigger_inhibit_source_->pop(ti);
-    inhibited_=ti.Busy;
+  while(running_flag_.load()){
+    while(trigger_inhibit_source_->can_pop()){
+      dfmessages::TriggerInhibit ti;
+      trigger_inhibit_source_->pop(ti);
+      inhibited_.store(ti.Busy);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  return inhibited_;
 }
-
-
-void
-TriggerDecisionEmulator::send_trigger_decision(dfmessages::TriggerDecision decision)
-{
-  trigger_decision_sink_->push(decision);
-}
-
-
-dfmessages::timestamp_t
-TriggerDecisionEmulator::estimate_current_timestamp()
-{
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source=time_sync_sources_.at(0);
-  while(time_sync_source->can_pop()){
-    time_sync_source->pop(most_recent_timesync_);
-  }
-
-  if(most_recent_timesync_.DAQTime==INVALID_TIMESTAMP){
-    throw NoTimeSyncsReceived(ERS_HERE);
-  }
-
-  using namespace std::chrono;
-  // std::chrono is the worst
-  auto time_now=static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count());
-  if(time_now < most_recent_timesync_.SystemTime){
-    throw InvalidTimeSync(ERS_HERE);
-  }
-  auto delta_time=time_now - most_recent_timesync_.SystemTime;
-  // TODO: Make the "stale timestamp" time configurable
-  if(delta_time > 3000000){
-    // We haven't had a time sync message for more than three seconds. Warn
-  }
-  const uint64_t CLOCK_FREQUENCY_HZ=50000000;
-  return most_recent_timesync_.DAQTime + delta_time*CLOCK_FREQUENCY_HZ/1000000;
-}
-
+  
 } // namespace trigemu
 } // namespace dunedaq
 

@@ -20,12 +20,11 @@
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
+#include "dfmessages/Types.hpp"
 
 #include "appfwk/DAQModule.hpp"
 #include "appfwk/DAQSink.hpp"
 #include "appfwk/DAQSource.hpp"
-#include "appfwk/ThreadHelper.hpp"
-#include "dfmessages/Types.hpp"
 
 #include <ers/ers.h>
 
@@ -80,28 +79,16 @@ private:
   void do_pause(const nlohmann::json& obj);
   void do_resume(const nlohmann::json& obj);
 
-  void do_work(std::atomic<bool>& running_flag);
-
-  // Estimate what the current timestamp is, based on what we've seen
-  // in the TimeSync queue
-  dfmessages::timestamp_t estimate_current_timestamp();
-
-  // Wait until our estimate of the current timestamp reaches
-  // `timestamp`, or `running_flag` is set to false, whichever occurs
-  // first. Return true if timestamp is reached, false if
-  // we returned because `running_flag` was set to false
-  bool wait_until_timestamp(dfmessages::timestamp_t timestamp, std::atomic<bool>& running_flag);
-
   // Are we inhibited from sending triggers?
-  bool triggers_are_inhibited();
+  bool triggers_are_inhibited() { return inhibited_.load(); }
 
-  // Send a trigger decision
-  void send_trigger_decision(dfmessages::TriggerDecision decision);
-
-  dunedaq::appfwk::ThreadHelper thread_;
-
+  // Thread functions
+  void send_trigger_decisions();
+  void estimate_current_timestamp();
+  void read_inhibit_queue();
+  
   // Queue sources and sinks
-  std::vector<std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>> time_sync_sources_;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> time_sync_source_;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> trigger_inhibit_source_;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> trigger_decision_sink_;
 
@@ -118,7 +105,7 @@ private:
   dfmessages::timestamp_t trigger_window_width_;
 
   // The trigger type for the trigger requests
-  dfmessages::trigger_type_t trigger_type_;
+  dfmessages::trigger_type_t trigger_type_{0xff};
 
   // The link IDs which should be read out in the trigger decision
   std::vector<dfmessages::GeoID> active_link_ids_;
@@ -128,15 +115,19 @@ private:
   // active_link_ids_
   bool cycle_through_links_;
 
-  // The most recent TimeSync message we've seen
-  dfmessages::TimeSync most_recent_timesync_;
+  // The estimate of the current timestamp
+  std::atomic<dfmessages::timestamp_t> current_timestamp_estimate_;
+
 
   // The most recent inhibit status we've seen (true = inhibited)
-  bool inhibited_;
+  std::atomic<bool> inhibited_;
 
   dfmessages::trigger_number_t last_trigger_number_;
 
   dfmessages::run_number_t run_number_;
+
+  std::vector<std::thread> threads_;
+  std::atomic<bool> running_flag_;
 };
 } // namespace trigemu
 } // namespace dunedaq
