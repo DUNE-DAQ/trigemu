@@ -8,12 +8,17 @@
  */
 
 #include "TriggerDecisionEmulator.hpp"
+
 #include "dfmessages/ComponentRequest.hpp"
-#include "dfmessages/TimeSync.hpp"
+
+#include "dfmessages/GeoID.hpp"
 #include "dfmessages/Types.hpp"
 #include "ers/ers.h"
-#include "trigemu/Messages_dummy.hpp"
 
+#include "trigemu/triggerdecisionemulator/Structs.hpp"
+#include "trigemu/triggerdecisionemulator/Nljs.hpp"
+
+#include <random>
 
 namespace dunedaq {
 namespace trigemu {
@@ -38,29 +43,25 @@ TriggerDecisionEmulator::init(const nlohmann::json& /* iniobj */)
 }
 
 void
-TriggerDecisionEmulator::do_configure(const nlohmann::json& /* confobj */)
+TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 {
-  // TODO:
-  // Fill the following from config:
-  // * time_sync_sources_
-  // * trigger_inhibit_source_
-  // * trigger_decision_sink_
-  // * active_link_ids_
-  // * timestamp_offset_
-  // * timestamp_period_
-  // * cycle_through_links_
-  // * trigger_window_offset_
-  // * trigger_window_width_
-  // * trigger_type_
-  //
-  // ...alternatively, we could just hold a copy of the Conf object as a member variable
+  auto params=confobj.get<triggerdecisionemulator::ConfParams>();
+  min_readout_window_ticks_=params.min_readout_window_ticks;
+  max_readout_window_ticks_=params.max_readout_window_ticks;
+  min_links_in_request_=params.min_links_in_request;
+  max_links_in_request_=params.max_links_in_request;
+  for(auto const& link: params.links){
+    // TODO: Set APA properly
+    links_.push_back(dfmessages::GeoID{0, static_cast<uint32_t>(link)});
+  }
+
 }
 
 void
 TriggerDecisionEmulator::do_start(const nlohmann::json& /*startobj*/)
 {
   // TODO: Set run_number_
-  
+
   running_flag_.store(true);
   threads_.emplace_back(&TriggerDecisionEmulator::estimate_current_timestamp, this);
   threads_.emplace_back(&TriggerDecisionEmulator::read_inhibit_queue, this);
@@ -87,8 +88,11 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& /*resumeobj*/)
 
 void TriggerDecisionEmulator::send_trigger_decisions()
 {
-  dfmessages::timestamp_t next_trigger_timestamp=(current_timestamp_estimate_.load()/timestamp_period_+1)*timestamp_period_+timestamp_offset_;
-  size_t last_triggered_link=0;
+  dfmessages::timestamp_t next_trigger_timestamp=(current_timestamp_estimate_.load()/trigger_interval_ticks_+1)*trigger_interval_ticks_+trigger_offset_;
+
+  std::default_random_engine random_engine(run_number_);
+  std::uniform_int_distribution<int> n_links_dist(min_links_in_request_, max_links_in_request_);
+  std::uniform_int_distribution<dfmessages::timestamp_t> window_ticks_dist(min_readout_window_ticks_, max_readout_window_ticks_);
 
   while(true){
     while(running_flag_.load() &&
@@ -97,7 +101,7 @@ void TriggerDecisionEmulator::send_trigger_decisions()
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     if(!running_flag_.load()) break;
-    
+
     if(!triggers_are_inhibited()){
 
       dfmessages::TriggerDecision decision;
@@ -105,36 +109,34 @@ void TriggerDecisionEmulator::send_trigger_decisions()
       decision.RunNumber=run_number_;
       decision.TriggerTimestamp=next_trigger_timestamp;
       decision.TriggerType=trigger_type_;
-      if(cycle_through_links_){
-        size_t next_link=(last_triggered_link+1)%active_link_ids_.size();
-        decision.Components.insert({active_link_ids_[next_link],
-            dfmessages::ComponentRequest{next_trigger_timestamp,
-                                      trigger_window_offset_,
-                                      trigger_window_width_}});
-        last_triggered_link=next_link;
 
-      }
-      else{
-        for(auto const& link: active_link_ids_){
-          decision.Components.insert({link,
-              dfmessages::ComponentRequest{next_trigger_timestamp,
-                                        trigger_window_offset_,
-                                        trigger_window_width_}});
+      int n_links = n_links_dist(random_engine);
 
-        }
+      std::vector<dfmessages::GeoID> this_links;
+      std::sample(links_.begin(), links_.end(), std::back_inserter(this_links),
+                  n_links, random_engine);
+
+      for(auto link: this_links){
+        dfmessages::ComponentRequest request;
+        request.RequestTimestamp=next_trigger_timestamp;
+        request.RequestOffset=trigger_window_offset_;
+        request.RequestWidth=window_ticks_dist(random_engine);
+
+        decision.Components.insert({link, request});
       }
+
       trigger_decision_sink_->push(decision);
     }
-    next_trigger_timestamp+=timestamp_period_;
+    next_trigger_timestamp+=trigger_interval_ticks_;
   }
 
 }
-  
+
 void TriggerDecisionEmulator::estimate_current_timestamp()
 {
   dfmessages::TimeSync most_recent_timesync{INVALID_TIMESTAMP};
   current_timestamp_estimate_.store(INVALID_TIMESTAMP);
-  
+
   // time_sync_source_ is connected to an MPMC queue with multiple
   // writers. We read whatever we can off it, and the item with the
   // largest timestamp "wins"
@@ -166,7 +168,7 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
   }
 
 }
-  
+
 void TriggerDecisionEmulator::read_inhibit_queue()
 {
   while(running_flag_.load()){
@@ -178,7 +180,7 @@ void TriggerDecisionEmulator::read_inhibit_queue()
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }
-  
+
 } // namespace trigemu
 } // namespace dunedaq
 

@@ -14,8 +14,6 @@
 #ifndef TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
 #define TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
 
-// TODO: Point this to the real header containing message class
-// definitions once it becomes available
 #include "dfmessages/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
@@ -81,7 +79,7 @@ private:
   void send_trigger_decisions();
   void estimate_current_timestamp();
   void read_inhibit_queue();
-  
+
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> time_sync_source_;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> trigger_inhibit_source_;
@@ -90,25 +88,23 @@ private:
   // Variables controlling how we produce triggers
 
   // Triggers are produced for timestamps:
-  //    timestamp_offset_ + n*timestamp_period_;
+  //    trigger_offset_ + n*trigger_interval_ticks_;
   // with n integer
-  dfmessages::timestamp_t timestamp_offset_;
-  dfmessages::timestamp_t timestamp_period_;
+  dfmessages::timestamp_t trigger_offset_;
+  dfmessages::timestamp_t trigger_interval_ticks_;
 
   // The offset and width of the windows to be requested in the trigger
   dfmessages::timestamp_diff_t trigger_window_offset_;
-  dfmessages::timestamp_t trigger_window_width_;
+  dfmessages::timestamp_t min_readout_window_ticks_;
+  dfmessages::timestamp_t max_readout_window_ticks_;
 
   // The trigger type for the trigger requests
   dfmessages::trigger_type_t trigger_type_{0xff};
 
   // The link IDs which should be read out in the trigger decision
-  std::vector<dfmessages::GeoID> active_link_ids_;
-
-  // If false, all links are read at each trigger. If true, we read
-  // out just one link for each trigger, cycling through
-  // active_link_ids_
-  bool cycle_through_links_;
+  std::vector<dfmessages::GeoID> links_;
+  int min_links_in_request_;
+  int max_links_in_request_;
 
   // The estimate of the current timestamp
   std::atomic<dfmessages::timestamp_t> current_timestamp_estimate_;
