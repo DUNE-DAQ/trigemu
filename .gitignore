@@ -1,1 +1,2 @@
-src/trigemu/triggerdecisionemulator/*
+src/trigemu/triggerdecisionemulator/
+test/src/trigemu/faketimesyncsource/

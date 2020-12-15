@@ -1,0 +1,113 @@
+[
+    {
+        "data": {
+            "modules": [
+                {
+                    "data": {
+                        "qinfos": [
+                            {
+                                "dir": "output",
+                                "inst": "time_sync_q",
+                                "name": "time_sync_sink"
+                            }
+                        ]
+                    },
+                    "inst": "ftss",
+                    "plugin": "FakeTimeSyncSource"
+                },
+                {
+                    "data": {
+                        "qinfos": [
+                            {
+                                "dir": "input",
+                                "inst": "time_sync_q",
+                                "name": "time_sync_source"
+                            },
+                            {
+                                "dir": "input",
+                                "inst": "trigger_inhibit_q",
+                                "name": "trigger_inhibit_source"
+                            },
+                            {
+                                "dir": "output",
+                                "inst": "trigger_decision_q",
+                                "name": "trigger_decision_sink"
+                            }
+                        ]
+                    },
+                    "inst": "tde",
+                    "plugin": "TriggerDecisionEmulator"
+                }
+            ],
+            "queues": [
+                {
+                    "capacity": 10000,
+                    "inst": "time_sync_q",
+                    "kind": "FollyMPMCQueue"
+                },
+                {
+                    "capacity": 10000,
+                    "inst": "trigger_inhibit_q",
+                    "kind": "FollySPSCQueue"
+                },
+                {
+                    "capacity": 10000,
+                    "inst": "trigger_decision_q",
+                    "kind": "FollySPSCQueue"
+                }
+            ]
+        },
+        "id": "init"
+    },
+    {
+        "data": {
+            "modules": [
+                {
+                    "data": {},
+                    "match": "ftss"
+                },
+                {
+                    "data": {
+                        "links": [
+                            0,
+                            1,
+                            2
+                        ]
+                    },
+                    "match": "tde"
+                }
+            ]
+        },
+        "id": "conf"
+    },
+    {
+        "data": {
+            "modules": [
+                {
+                    "data": {
+                        "sync_interval_ticks": 64000000
+                    },
+                    "match": "ftss"
+                },
+                {
+                    "data": {
+                        "trigger_interval_ticks": 64000000
+                    },
+                    "match": "tde"
+                }
+            ]
+        },
+        "id": "start"
+    },
+    {
+        "data": {
+            "modules": [
+                {
+                    "data": {},
+                    "match": ""
+                }
+            ]
+        },
+        "id": "stop"
+    }
+]
