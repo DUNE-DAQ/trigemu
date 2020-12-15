@@ -29,7 +29,7 @@ private:
   void do_start(const nlohmann::json& obj);
   void do_stop(const nlohmann::json& obj);
 
-  void send_timesyncs();
+  void send_timesyncs(const dfmessages::timestamp_t timesync_interval_ticks);
   
   std::atomic<bool> running_flag_;
   std::vector<std::thread> threads_;

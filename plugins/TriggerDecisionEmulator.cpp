@@ -23,13 +23,13 @@
 #include "appfwk/cmd/Nljs.hpp"
 
 #include <random>
-
+#include <cassert>
 
 
 namespace dunedaq {
 namespace trigemu {
 
-constexpr dfmessages::timestamp_t INVALID_TIMESTAMP=0xffffffffffffffff;
+
 
 TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   : DAQModule(name)
@@ -39,7 +39,7 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   , inhibited_(false)
   , last_trigger_number_(0)
 {
-  register_command("configure", &TriggerDecisionEmulator::do_configure);
+  register_command("conf", &TriggerDecisionEmulator::do_configure);
   register_command("start", &TriggerDecisionEmulator::do_start);
   register_command("stop", &TriggerDecisionEmulator::do_stop);
   register_command("pause", &TriggerDecisionEmulator::do_pause);
@@ -57,7 +57,7 @@ TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
     if (qi.name == "trigger_inhibit_source") {
       trigger_inhibit_source_.reset(new appfwk::DAQSource<dfmessages::TriggerInhibit>(qi.inst));
     }
-    if (qi.name == "trigger_inhibit_sink") {
+    if (qi.name == "trigger_decision_sink") {
       trigger_decision_sink_.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
     }
   }
@@ -79,10 +79,11 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 }
 
 void
-TriggerDecisionEmulator::do_start(const nlohmann::json& /*startobj*/)
+TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
 {
-  // TODO: Set run_number_
-
+  auto params=startobj.get<triggerdecisionemulator::start_params>();
+  trigger_interval_ticks_=params.trigger_interval_ticks;
+  current_timestamp_estimate_.store(INVALID_TIMESTAMP);
   running_flag_.store(true);
   threads_.emplace_back(&TriggerDecisionEmulator::estimate_current_timestamp, this);
   threads_.emplace_back(&TriggerDecisionEmulator::read_inhibit_queue, this);
@@ -109,7 +110,18 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& /*resumeobj*/)
 
 void TriggerDecisionEmulator::send_trigger_decisions()
 {
-  dfmessages::timestamp_t next_trigger_timestamp=(current_timestamp_estimate_.load()/trigger_interval_ticks_+1)*trigger_interval_ticks_+trigger_offset_;
+  // Wait for there to be a valid timestamp estimate before we start
+  while(running_flag_.load() &&
+        current_timestamp_estimate_.load()==INVALID_TIMESTAMP){
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+
+  dfmessages::timestamp_t ts=current_timestamp_estimate_.load();
+  // Round up to the next multiple of trigger_interval_ticks_
+  dfmessages::timestamp_t next_trigger_timestamp=(ts/trigger_interval_ticks_ + 1)*trigger_interval_ticks_ + trigger_offset_;
+  ERS_INFO("Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp);
+
+  assert(next_trigger_timestamp > ts);
 
   std::default_random_engine random_engine(run_number_);
   std::uniform_int_distribution<int> n_links_dist(min_links_in_request_, max_links_in_request_);
@@ -146,8 +158,15 @@ void TriggerDecisionEmulator::send_trigger_decisions()
         decision.Components.insert({link, request});
       }
 
-      trigger_decision_sink_->push(decision);
+      ERS_INFO("At timestamp " << current_timestamp_estimate_.load() << ", pushing a decision with triggernumber " << decision.TriggerNumber
+               << " timestamp " << decision.TriggerTimestamp
+               << " number of links " << n_links);
+      trigger_decision_sink_->push(decision, std::chrono::milliseconds(10));
     }
+    else{
+      ERS_INFO("Triggers are inhibited. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
+    }
+
     next_trigger_timestamp+=trigger_interval_ticks_;
   }
 
@@ -158,6 +177,8 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
   dfmessages::TimeSync most_recent_timesync{INVALID_TIMESTAMP};
   current_timestamp_estimate_.store(INVALID_TIMESTAMP);
 
+  int i=0;
+
   // time_sync_source_ is connected to an MPMC queue with multiple
   // writers. We read whatever we can off it, and the item with the
   // largest timestamp "wins"
@@ -166,6 +187,7 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
     while(time_sync_source_->can_pop()){
       dfmessages::TimeSync t{INVALID_TIMESTAMP};
       time_sync_source_->pop(t);
+      ERS_INFO("Got a TimeSync timestamp = " << t.DAQTime << ", system time = " << t.SystemTime);
       if(most_recent_timesync.DAQTime==INVALID_TIMESTAMP ||
          t.DAQTime > most_recent_timesync.DAQTime){
         most_recent_timesync=t;
@@ -182,7 +204,11 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
       }
       auto delta_time=time_now - most_recent_timesync.SystemTime;
       const uint64_t CLOCK_FREQUENCY_HZ=62500000;
-      current_timestamp_estimate_.store(most_recent_timesync.DAQTime + delta_time*CLOCK_FREQUENCY_HZ/1000000);
+      const dfmessages::timestamp_t new_timestamp=most_recent_timesync.DAQTime + delta_time*CLOCK_FREQUENCY_HZ/1000000;
+      if(i++ % 100 == 0){
+        ERS_INFO("Updating timestamp estimate to " << new_timestamp);
+      }
+      current_timestamp_estimate_.store(new_timestamp);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

@@ -1,10 +1,12 @@
 #include "FakeTimeSyncSource.hpp"
+#include "trigemu/faketimesyncsource/Nljs.hpp"
 #include "appfwk/cmd/Nljs.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/Types.hpp"
 #include <cstdint>
 
 #include "ers/ers.h"
+#include "trigemu/faketimesyncsource/Structs.hpp"
 
 namespace dunedaq::trigemu {
 
@@ -12,7 +14,7 @@ FakeTimeSyncSource::FakeTimeSyncSource(const std::string& name)
   : DAQModule(name)
   , running_flag_{false}
 {
-  register_command("configure", &FakeTimeSyncSource::do_configure);
+  register_command("conf",      &FakeTimeSyncSource::do_configure);
   register_command("start",     &FakeTimeSyncSource::do_start);
   register_command("stop",      &FakeTimeSyncSource::do_stop);
 }
@@ -29,19 +31,20 @@ FakeTimeSyncSource::init(const nlohmann::json& iniobj)
 }
 
 void
-FakeTimeSyncSource::do_configure(const nlohmann::json& confobj)
+FakeTimeSyncSource::do_configure(const nlohmann::json& /* confobj */)
 {
 }
 
 void
 FakeTimeSyncSource::do_start(const nlohmann::json& startobj)
 {
+  auto params=startobj.get<faketimesyncsource::start_params>();
   running_flag_.store(true);
-  threads_.push_back(std::thread(&FakeTimeSyncSource::send_timesyncs, this));
+  threads_.push_back(std::thread(&FakeTimeSyncSource::send_timesyncs, this, params.sync_interval_ticks));
 }
 
 void
-FakeTimeSyncSource::do_stop(const nlohmann::json& stopobj)
+FakeTimeSyncSource::do_stop(const nlohmann::json& /* stopobj */)
 {
   running_flag_.store(false);
   for(auto& thread: threads_) thread.join();
@@ -49,11 +52,9 @@ FakeTimeSyncSource::do_stop(const nlohmann::json& stopobj)
 }
 
 void
-FakeTimeSyncSource::send_timesyncs()
+FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interval_ticks)
 {
   const uint64_t CLOCK_FREQUENCY_HZ=62500000;
-  // Send message once per second
-  const dfmessages::timestamp_t timesync_interval_ticks=CLOCK_FREQUENCY_HZ;
   
   using namespace std::chrono;
 
@@ -75,7 +76,7 @@ FakeTimeSyncSource::send_timesyncs()
       now_timestamp=duration_cast<ticks>(time_now).count();
     }
     if(!running_flag_.load()) break;
-    ERS_INFO("Sending TimeSync " << now_timestamp << " " << now_system_us);
+    ERS_INFO("Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us);
     time_sync_sink_->push(dfmessages::TimeSync(now_timestamp, now_system_us));
 
     next_timestamp+=timesync_interval_ticks;

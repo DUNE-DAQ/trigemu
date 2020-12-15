@@ -85,18 +85,20 @@ private:
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> trigger_inhibit_source_;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> trigger_decision_sink_;
 
+  static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP=0xffffffffffffffff;
+
   // Variables controlling how we produce triggers
 
   // Triggers are produced for timestamps:
   //    trigger_offset_ + n*trigger_interval_ticks_;
   // with n integer
-  dfmessages::timestamp_t trigger_offset_;
-  dfmessages::timestamp_t trigger_interval_ticks_;
+  dfmessages::timestamp_t trigger_offset_{0};
+  dfmessages::timestamp_t trigger_interval_ticks_{0};
 
   // The offset and width of the windows to be requested in the trigger
-  dfmessages::timestamp_diff_t trigger_window_offset_;
-  dfmessages::timestamp_t min_readout_window_ticks_;
-  dfmessages::timestamp_t max_readout_window_ticks_;
+  dfmessages::timestamp_diff_t trigger_window_offset_{0};
+  dfmessages::timestamp_t min_readout_window_ticks_{0};
+  dfmessages::timestamp_t max_readout_window_ticks_{0};
 
   // The trigger type for the trigger requests
   dfmessages::trigger_type_t trigger_type_{0xff};
@@ -107,7 +109,7 @@ private:
   int max_links_in_request_;
 
   // The estimate of the current timestamp
-  std::atomic<dfmessages::timestamp_t> current_timestamp_estimate_;
+  std::atomic<dfmessages::timestamp_t> current_timestamp_estimate_{INVALID_TIMESTAMP};
 
 
   // The most recent inhibit status we've seen (true = inhibited)
