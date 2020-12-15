@@ -1,3 +1,6 @@
+# Compile this file to json with moo compile, eg:
+# moo -M $DBT_AREA_ROOT/sourcecode/appfwk/schema compile $DBT_AREA_ROOT/sourcecode/trigemu/schema/fake-job.jsonnet > $DBT_AREA_ROOT/sourcecode/trigemu/schema/fake-job.json
+
 local moo = import "moo.jsonnet";
 
 local cmd = import "appfwk-cmd-make.jsonnet";
@@ -17,6 +20,10 @@ local trigger_decision_q = "trigger_decision_q";
     [
       cmd.mspec("ftss", "FakeTimeSyncSource",
         cmd.qinfo("time_sync_sink", time_sync_q, cmd.qdir.output)),
+
+      cmd.mspec("fig", "FakeInhibitGenerator",
+        cmd.qinfo("trigger_inhibit_sink", trigger_inhibit_q, cmd.qdir.output)),
+
       cmd.mspec("tde", "TriggerDecisionEmulator",
         [
           cmd.qinfo("time_sync_source", time_sync_q, cmd.qdir.input),
@@ -30,6 +37,7 @@ local trigger_decision_q = "trigger_decision_q";
   cmd.conf(
     [
       cmd.mcmd("ftss", {}),
+      cmd.mcmd("fig", {}),
       cmd.mcmd("tde",
         {
           "links" : [0, 1, 2]
@@ -50,6 +58,11 @@ local trigger_decision_q = "trigger_decision_q";
       cmd.mcmd("ftss",
         {
           "sync_interval_ticks": 64000000
+        }
+      ),
+      cmd.mcmd("fig",
+        {
+          "inhibit_interval_ms": 5000
         }
       ),
       cmd.mcmd("tde",

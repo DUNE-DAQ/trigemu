@@ -19,6 +19,19 @@
                     "data": {
                         "qinfos": [
                             {
+                                "dir": "output",
+                                "inst": "trigger_inhibit_q",
+                                "name": "trigger_inhibit_sink"
+                            }
+                        ]
+                    },
+                    "inst": "fig",
+                    "plugin": "FakeInhibitGenerator"
+                },
+                {
+                    "data": {
+                        "qinfos": [
+                            {
                                 "dir": "input",
                                 "inst": "time_sync_q",
                                 "name": "time_sync_source"
@@ -67,6 +80,10 @@
                     "match": "ftss"
                 },
                 {
+                    "data": {},
+                    "match": "fig"
+                },
+                {
                     "data": {
                         "links": [
                             0,
@@ -88,6 +105,12 @@
                         "sync_interval_ticks": 64000000
                     },
                     "match": "ftss"
+                },
+                {
+                    "data": {
+                        "inhibit_interval_ms": 5000
+                    },
+                    "match": "fig"
                 },
                 {
                     "data": {

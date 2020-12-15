@@ -11,5 +11,6 @@ find_package(dfmessages REQUIRED)
 daq_add_plugin(TriggerDecisionEmulator duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages SCHEMA)
 
 daq_add_plugin(FakeTimeSyncSource duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages TEST SCHEMA)
+daq_add_plugin(FakeInhibitGenerator duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages TEST SCHEMA)
 
 daq_install()
