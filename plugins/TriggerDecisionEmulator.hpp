@@ -114,6 +114,8 @@ private:
 
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> inhibited_;
+  // paused state, equivalent to inhibited
+  std::atomic<bool> paused_;
 
   dfmessages::trigger_number_t last_trigger_number_;
 

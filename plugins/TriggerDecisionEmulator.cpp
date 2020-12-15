@@ -85,6 +85,7 @@ TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
   trigger_interval_ticks_=params.trigger_interval_ticks;
   current_timestamp_estimate_.store(INVALID_TIMESTAMP);
   running_flag_.store(true);
+  paused_.store(false);
   threads_.emplace_back(&TriggerDecisionEmulator::estimate_current_timestamp, this);
   threads_.emplace_back(&TriggerDecisionEmulator::read_inhibit_queue, this);
   threads_.emplace_back(&TriggerDecisionEmulator::send_trigger_decisions, this);
@@ -101,11 +102,13 @@ TriggerDecisionEmulator::do_stop(const nlohmann::json& /*stopobj*/)
 void
 TriggerDecisionEmulator::do_pause(const nlohmann::json& /*pauseobj*/)
 {
+    paused_.store(true);
 }
 
 void
 TriggerDecisionEmulator::do_resume(const nlohmann::json& /*resumeobj*/)
 {
+    paused_.store(false);
 }
 
 void TriggerDecisionEmulator::send_trigger_decisions()
@@ -135,7 +138,7 @@ void TriggerDecisionEmulator::send_trigger_decisions()
     }
     if(!running_flag_.load()) break;
 
-    if(!triggers_are_inhibited()){
+    if(!triggers_are_inhibited() && !paused_.load()){
 
       dfmessages::TriggerDecision decision;
       decision.TriggerNumber=last_trigger_number_++;
@@ -230,6 +233,7 @@ void TriggerDecisionEmulator::read_inhibit_queue()
 
 } // namespace trigemu
 } // namespace dunedaq
+
 
 DEFINE_DUNE_DAQ_MODULE(dunedaq::trigemu::TriggerDecisionEmulator)
 
