@@ -14,7 +14,7 @@
 #ifndef TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
 #define TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
 
-#include "dfmessages/GeoID.hpp"
+#include "cdf/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"

@@ -9,16 +9,22 @@
 
 #include "TriggerDecisionEmulator.hpp"
 
-#include "dfmessages/ComponentRequest.hpp"
+#include "cdf/ComponentRequest.hpp"
 
-#include "dfmessages/GeoID.hpp"
+#include "dfmessages/TimeSync.hpp"
+#include "dfmessages/TriggerDecision.hpp"
+#include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 #include "ers/ers.h"
 
 #include "trigemu/triggerdecisionemulator/Structs.hpp"
 #include "trigemu/triggerdecisionemulator/Nljs.hpp"
 
+#include "appfwk/cmd/Nljs.hpp"
+
 #include <random>
+
+
 
 namespace dunedaq {
 namespace trigemu {
@@ -27,6 +33,9 @@ constexpr dfmessages::timestamp_t INVALID_TIMESTAMP=0xffffffffffffffff;
 
 TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   : DAQModule(name)
+  , time_sync_source_(nullptr)
+  , trigger_inhibit_source_(nullptr)
+  , trigger_decision_sink_(nullptr)
   , inhibited_(false)
   , last_trigger_number_(0)
 {
@@ -38,14 +47,26 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
 }
 
 void
-TriggerDecisionEmulator::init(const nlohmann::json& /* iniobj */)
+TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 {
+  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  for (const auto& qi : ini.qinfos) {
+    if (qi.name == "time_sync_source") {
+      time_sync_source_.reset(new appfwk::DAQSource<dfmessages::TimeSync>(qi.inst));
+    }
+    if (qi.name == "trigger_inhibit_source") {
+      trigger_inhibit_source_.reset(new appfwk::DAQSource<dfmessages::TriggerInhibit>(qi.inst));
+    }
+    if (qi.name == "trigger_inhibit_sink") {
+      trigger_decision_sink_.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
+    }
+  }
 }
 
 void
 TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 {
-  auto params=confobj.get<triggerdecisionemulator::ConfParams>();
+  auto params=confobj.get<triggerdecisionemulator::conf_params>();
   min_readout_window_ticks_=params.min_readout_window_ticks;
   max_readout_window_ticks_=params.max_readout_window_ticks;
   min_links_in_request_=params.min_links_in_request;
