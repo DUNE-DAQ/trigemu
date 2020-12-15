@@ -77,7 +77,11 @@ FakeTimeSyncSource::send_timesyncs()
     if(!running_flag_.load()) break;
     ERS_INFO("Sending TimeSync " << now_timestamp << " " << now_system_us);
     time_sync_sink_->push(dfmessages::TimeSync(now_timestamp, now_system_us));
+
+    next_timestamp+=timesync_interval_ticks;
   }
 }
   
 } // namespace dunedaq::trigemu
+
+DEFINE_DUNE_DAQ_MODULE(dunedaq::trigemu::FakeTimeSyncSource)
