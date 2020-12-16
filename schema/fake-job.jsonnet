@@ -24,6 +24,9 @@ local trigger_decision_q = "trigger_decision_q";
       cmd.mspec("fig", "FakeInhibitGenerator",
         cmd.qinfo("trigger_inhibit_sink", trigger_inhibit_q, cmd.qdir.output)),
 
+      cmd.mspec("frr", "FakeRequestReceiver",
+        cmd.qinfo("trigger_decision_source", trigger_decision_q, cmd.qdir.input)),
+
       cmd.mspec("tde", "TriggerDecisionEmulator",
         [
           cmd.qinfo("time_sync_source", time_sync_q, cmd.qdir.input),
@@ -36,6 +39,8 @@ local trigger_decision_q = "trigger_decision_q";
 
   cmd.conf(
     [
+      # PAR 2020-12-16 FakeRequestReceiver doesn't have a config function
+      # cmd.mcmd("frr", {}),
       cmd.mcmd("ftss", {}),
       cmd.mcmd("fig", {}),
       cmd.mcmd("tde",
@@ -55,6 +60,7 @@ local trigger_decision_q = "trigger_decision_q";
   cmd.cmd(
     "start",
     [
+      cmd.mcmd("frr", {}),
       cmd.mcmd("ftss",
         {
           "sync_interval_ticks": 64000000
