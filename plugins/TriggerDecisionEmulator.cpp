@@ -66,11 +66,12 @@ TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 void
 TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 {
-  auto params=confobj.get<triggerdecisionemulator::conf_params>();
+  auto params=confobj.get<triggerdecisionemulator::ConfParams>();
   min_readout_window_ticks_=params.min_readout_window_ticks;
   max_readout_window_ticks_=params.max_readout_window_ticks;
   min_links_in_request_=params.min_links_in_request;
   max_links_in_request_=params.max_links_in_request;
+  trigger_interval_ticks_.store(params.trigger_interval_ticks);
   links_.clear();
   for(auto const& link: params.links){
     // TODO: Set APA properly
@@ -85,10 +86,11 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 }
 
 void
-TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
+TriggerDecisionEmulator::do_start(const nlohmann::json& /*startobj*/)
 {
-  auto params=startobj.get<triggerdecisionemulator::start_params>();
-  trigger_interval_ticks_=params.trigger_interval_ticks;
+
+  // TODO : how to we get the run number?
+
   current_timestamp_estimate_.store(INVALID_TIMESTAMP);
   running_flag_.store(true);
   paused_.store(false);
@@ -109,11 +111,16 @@ void
 TriggerDecisionEmulator::do_pause(const nlohmann::json& /*pauseobj*/)
 {
     paused_.store(true);
+    ERS_INFO("******* Triggers PAUSED! *********");
 }
 
 void
-TriggerDecisionEmulator::do_resume(const nlohmann::json& /*resumeobj*/)
+TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
 {
+    auto params=resumeobj.get<triggerdecisionemulator::ResumeParams>();
+    trigger_interval_ticks_.store(params.trigger_interval_ticks);
+
+    ERS_INFO("******* Triggers RESUMED! *********");
     paused_.store(false);
 }
 
@@ -127,8 +134,8 @@ void TriggerDecisionEmulator::send_trigger_decisions()
 
   dfmessages::timestamp_t ts=current_timestamp_estimate_.load();
   // Round up to the next multiple of trigger_interval_ticks_
-  dfmessages::timestamp_t next_trigger_timestamp=(ts/trigger_interval_ticks_ + 1)*trigger_interval_ticks_ + trigger_offset_;
-  ERS_INFO("Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp);
+  dfmessages::timestamp_t next_trigger_timestamp=(ts/trigger_interval_ticks_.load()   + 1)*trigger_interval_ticks_.load() + trigger_offset_;
+  ERS_DEBUG(1,"Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp);
 
   assert(next_trigger_timestamp > ts);
 
@@ -168,16 +175,16 @@ void TriggerDecisionEmulator::send_trigger_decisions()
         decision.Components.insert({link, request});
       }
 
-      ERS_INFO("At timestamp " << current_timestamp_estimate_.load() << ", pushing a decision with triggernumber " << decision.TriggerNumber
+      ERS_DEBUG(0,"At timestamp " << current_timestamp_estimate_.load() << ", pushing a decision with triggernumber " << decision.TriggerNumber
                << " timestamp " << decision.TriggerTimestamp
                << " number of links " << n_links);
       trigger_decision_sink_->push(decision, std::chrono::milliseconds(10));
     }
     else{
-      ERS_INFO("Triggers are inhibited. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
+      ERS_DEBUG(1,"Triggers are inhibited. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
     }
 
-    next_trigger_timestamp+=trigger_interval_ticks_;
+    next_trigger_timestamp+=trigger_interval_ticks_.load();
   }
 
 }
@@ -197,7 +204,7 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
     while(time_sync_source_->can_pop()){
       dfmessages::TimeSync t{INVALID_TIMESTAMP};
       time_sync_source_->pop(t);
-      ERS_INFO("Got a TimeSync timestamp = " << t.DAQTime << ", system time = " << t.SystemTime);
+      ERS_DEBUG(1,"Got a TimeSync timestamp = " << t.DAQTime << ", system time = " << t.SystemTime);
       if(most_recent_timesync.DAQTime==INVALID_TIMESTAMP ||
          t.DAQTime > most_recent_timesync.DAQTime){
         most_recent_timesync=t;
@@ -210,15 +217,17 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
       // std::chrono is the worst
       auto time_now=static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count());
       if(time_now < most_recent_timesync.SystemTime){
-        throw InvalidTimeSync(ERS_HERE);
+        ers::error(InvalidTimeSync(ERS_HERE));
       }
-      auto delta_time=time_now - most_recent_timesync.SystemTime;
-      const uint64_t CLOCK_FREQUENCY_HZ=62500000;
-      const dfmessages::timestamp_t new_timestamp=most_recent_timesync.DAQTime + delta_time*CLOCK_FREQUENCY_HZ/1000000;
-      if(i++ % 100 == 0){
-        ERS_INFO("Updating timestamp estimate to " << new_timestamp);
+      else {
+          auto delta_time=time_now - most_recent_timesync.SystemTime;
+          const uint64_t CLOCK_FREQUENCY_HZ=62500000;
+          const dfmessages::timestamp_t new_timestamp=most_recent_timesync.DAQTime + delta_time*CLOCK_FREQUENCY_HZ/1000000;
+          if(i++ % 100 == 0){
+              ERS_DEBUG(1,"Updating timestamp estimate to " << new_timestamp);
+          }
+          current_timestamp_estimate_.store(new_timestamp);
       }
-      current_timestamp_estimate_.store(new_timestamp);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -233,7 +242,10 @@ void TriggerDecisionEmulator::read_inhibit_queue()
       dfmessages::TriggerInhibit ti;
       trigger_inhibit_source_->pop(ti);
       inhibited_.store(ti.Busy);
-    }
+      if(ti.Busy) {
+	ERS_INFO("Dataflow is BUSY.");
+      } 
+   }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }

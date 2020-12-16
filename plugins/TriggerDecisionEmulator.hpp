@@ -98,7 +98,7 @@ private:
   //    trigger_offset_ + n*trigger_interval_ticks_;
   // with n integer
   dfmessages::timestamp_t trigger_offset_{0};
-  dfmessages::timestamp_t trigger_interval_ticks_{0};
+  std::atomic<dfmessages::timestamp_t> trigger_interval_ticks_{0};
 
   // The offset and width of the windows to be requested in the trigger
   dfmessages::timestamp_diff_t trigger_window_offset_{0};

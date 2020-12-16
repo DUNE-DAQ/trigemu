@@ -13,6 +13,7 @@ namespace dunedaq::trigemu {
 FakeTimeSyncSource::FakeTimeSyncSource(const std::string& name)
   : DAQModule(name)
   , running_flag_{false}
+  , sync_interval_ticks_{0} 
 {
   register_command("conf",      &FakeTimeSyncSource::do_configure);
   register_command("start",     &FakeTimeSyncSource::do_start);
@@ -31,16 +32,17 @@ FakeTimeSyncSource::init(const nlohmann::json& iniobj)
 }
 
 void
-FakeTimeSyncSource::do_configure(const nlohmann::json& /* confobj */)
+FakeTimeSyncSource::do_configure(const nlohmann::json& confobj)
 {
+  auto params=confobj.get<faketimesyncsource::ConfParams>();
+  sync_interval_ticks_ = params.sync_interval_ticks;
 }
 
 void
-FakeTimeSyncSource::do_start(const nlohmann::json& startobj)
+FakeTimeSyncSource::do_start(const nlohmann::json& /*startobj*/)
 {
-  auto params=startobj.get<faketimesyncsource::start_params>();
   running_flag_.store(true);
-  threads_.push_back(std::thread(&FakeTimeSyncSource::send_timesyncs, this, params.sync_interval_ticks));
+  threads_.push_back(std::thread(&FakeTimeSyncSource::send_timesyncs, this, sync_interval_ticks_));
 }
 
 void
@@ -76,7 +78,7 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
       now_timestamp=duration_cast<ticks>(time_now).count();
     }
     if(!running_flag_.load()) break;
-    ERS_INFO("Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us);
+    ERS_DEBUG(1,"Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us);
     time_sync_sink_->push(dfmessages::TimeSync(now_timestamp, now_system_us));
 
     next_timestamp+=timesync_interval_ticks;

@@ -8,7 +8,7 @@ local types = {
   link_count: s.number("link_count", dtype="i4"),
   ticks: s.number("ticks", dtype="i8"),
   
-  conf : s.record("conf_params", [
+  conf : s.record("ConfParams", [
     s.field("links", self.linkvec,
       doc="List of link identifiers that may be included into trigger decision"),
     s.field("min_links_in_request", self.link_count, 10,
@@ -19,14 +19,11 @@ local types = {
       doc="Minimum readout window to ask data for in 16 ns time ticks (default 51.2 us)"),
     s.field("max_readout_window_ticks", self.ticks, 320000,
       doc="Maximum readout window to ask data for in 16 ns time ticks (default 5.12 ms)"),
-  ], doc="TriggerDecisionEmulator configuration parameters"),
-
-  start: s.record("start_params", [
     s.field("trigger_interval_ticks", self.ticks, 64000000,
       doc="Interval between triggers in 16 ns time ticks (default 1.024 s) "),
-  ], doc="TriggerDecisionEmulator start parameters"),
-  
-  resume: s.record("resume_params", [
+  ], doc="TriggerDecisionEmulator configuration parameters"),
+
+  resume: s.record("ResumeParams", [
     s.field("trigger_interval_ticks", self.ticks, 64000000,
       doc="Interval between triggers in 16 ns time ticks (default 1.024 s)"),
   ], doc="TriggerDecisionEmulator resume parameters"),

@@ -36,7 +36,7 @@ private:
   std::vector<std::thread> threads_;
   
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerInhibit>> trigger_inhibit_sink_;
-  
+  std::chrono::milliseconds inhibit_interval_ms_; 
 };
   
 } // namespace dunedaq::trigemu

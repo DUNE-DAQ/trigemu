@@ -51,7 +51,7 @@ FakeRequestReceiver::run()
             trigger_decision_source_->pop(decision);
 	    ++dec_counter;
 	    if(dec_counter%10 == 0) {
-		ERS_LOG("Received " << dec_counter << " trigger decisions.");
+		ERS_DEBUG(0,"Received " << dec_counter << " trigger decisions.");
 	    }
         }
         else { 

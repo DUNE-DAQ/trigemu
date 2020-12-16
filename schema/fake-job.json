@@ -89,11 +89,15 @@
         "data": {
             "modules": [
                 {
-                    "data": {},
+                    "data": {
+                        "sync_interval_ticks": 64000000
+                    },
                     "match": "ftss"
                 },
                 {
-                    "data": {},
+                    "data": {
+                        "inhibit_interval_ms": 5000
+                    },
                     "match": "fig"
                 },
                 {
@@ -113,7 +117,8 @@
                         "max_links_in_request": 10,
                         "max_readout_window_ticks": 320000,
                         "min_links_in_request": 2,
-                        "min_readout_window_ticks": 320000
+                        "min_readout_window_ticks": 320000,
+                        "trigger_interval_ticks": 64000000
                     },
                     "match": "tde"
                 }
@@ -125,26 +130,10 @@
         "data": {
             "modules": [
                 {
-                    "data": {},
-                    "match": "frr"
-                },
-                {
                     "data": {
-                        "sync_interval_ticks": 64000000
+                        "run": 77
                     },
-                    "match": "ftss"
-                },
-                {
-                    "data": {
-                        "inhibit_interval_ms": 5000
-                    },
-                    "match": "fig"
-                },
-                {
-                    "data": {
-                        "trigger_interval_ticks": 64000000
-                    },
-                    "match": "tde"
+                    "match": ""
                 }
             ]
         },
@@ -160,5 +149,29 @@
             ]
         },
         "id": "stop"
+    },
+    {
+        "data": {
+            "modules": [
+                {
+                    "data": {
+                        "trigger_interval_ticks": 32000000
+                    },
+                    "match": "tde"
+                }
+            ]
+        },
+        "id": "resume"
+    },
+    {
+        "data": {
+            "modules": [
+                {
+                    "data": {},
+                    "match": "tde"
+                }
+            ]
+        },
+        "id": "pause"
     }
 ]

@@ -16,6 +16,7 @@ namespace dunedaq::trigemu {
 FakeInhibitGenerator::FakeInhibitGenerator(const std::string& name)
   : DAQModule(name)
   , running_flag_{false}
+  , inhibit_interval_ms_{0}
 {
   register_command("conf",      &FakeInhibitGenerator::do_configure);
   register_command("start",     &FakeInhibitGenerator::do_start);
@@ -34,16 +35,17 @@ FakeInhibitGenerator::init(const nlohmann::json& iniobj)
 }
 
 void
-FakeInhibitGenerator::do_configure(const nlohmann::json& /* confobj */)
+FakeInhibitGenerator::do_configure(const nlohmann::json& confobj)
 {
+  auto params=confobj.get<fakeinhibitgenerator::ConfParams>();
+  inhibit_interval_ms_ = std::chrono::milliseconds(params.inhibit_interval_ms);
 }
 
 void
-FakeInhibitGenerator::do_start(const nlohmann::json& startobj)
+FakeInhibitGenerator::do_start(const nlohmann::json& /*startobj*/)
 {
-  auto params=startobj.get<fakeinhibitgenerator::start_params>();
   running_flag_.store(true);
-  threads_.push_back(std::thread(&FakeInhibitGenerator::send_inhibits, this, std::chrono::milliseconds(params.inhibit_interval_ms)));
+  threads_.push_back(std::thread(&FakeInhibitGenerator::send_inhibits, this, inhibit_interval_ms_));
                                  
 }
 
@@ -70,7 +72,7 @@ FakeInhibitGenerator::send_inhibits(const std::chrono::milliseconds inhibit_inte
     if(!running_flag_.load()) break;
 
     busy=!busy;
-    ERS_INFO("Sending TriggerInhibit with busy=" << busy);
+    ERS_DEBUG(1,"Sending TriggerInhibit with busy=" << busy);
     trigger_inhibit_sink_->push(dfmessages::TriggerInhibit{busy});
     
     next_switch_time += inhibit_interval_ms;

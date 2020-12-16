@@ -35,7 +35,8 @@ private:
   std::vector<std::thread> threads_;
   
   std::unique_ptr<appfwk::DAQSink<dfmessages::TimeSync>> time_sync_sink_;
-  
+
+  dfmessages::timestamp_t sync_interval_ticks_;  
 };
   
 } // namespace dunedaq::trigemu
