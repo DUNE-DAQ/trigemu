@@ -39,7 +39,8 @@ local trigger_decision_q = "trigger_decision_q";
 
   cmd.conf(
     [
-      cmd.mcmd("frr", {}),
+      # PAR 2020-12-16 FakeRequestReceiver doesn't have a config function
+      # cmd.mcmd("frr", {}),
       cmd.mcmd("ftss", {}),
       cmd.mcmd("fig", {}),
       cmd.mcmd("tde",
