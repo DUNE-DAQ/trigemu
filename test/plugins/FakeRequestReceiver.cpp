@@ -27,7 +27,7 @@ FakeRequestReceiver::init(const nlohmann::json& iniobj)
 
 
 void
-FakeRequestReceiver::do_start(const nlohmann::json& startobj)
+FakeRequestReceiver::do_start(const nlohmann::json& /* startobj */)
 {
   running_flag_.store(true);
   threads_.emplace_back(&FakeRequestReceiver::run, this);
