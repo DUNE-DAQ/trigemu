@@ -37,6 +37,11 @@ ERS_DECLARE_ISSUE(trigemu,
                   "An invalid TimeSync message was received",
                   ERS_EMPTY)
 
+ERS_DECLARE_ISSUE(trigemu,
+                  InvalidConfiguration,
+                  "An invalid configuration object was received",
+                  ERS_EMPTY)
+
 
 namespace trigemu {
 

@@ -71,11 +71,17 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   max_readout_window_ticks_=params.max_readout_window_ticks;
   min_links_in_request_=params.min_links_in_request;
   max_links_in_request_=params.max_links_in_request;
+  links_.clear();
   for(auto const& link: params.links){
     // TODO: Set APA properly
     links_.push_back(dfmessages::GeoID{0, static_cast<uint32_t>(link)});
   }
 
+  // Sanity-check the values
+  if(min_readout_window_ticks_ > max_readout_window_ticks_ ||
+     min_links_in_request_ > max_links_in_request_){
+    throw InvalidConfiguration(ERS_HERE);
+  }
 }
 
 void
@@ -127,7 +133,8 @@ void TriggerDecisionEmulator::send_trigger_decisions()
   assert(next_trigger_timestamp > ts);
 
   std::default_random_engine random_engine(run_number_);
-  std::uniform_int_distribution<int> n_links_dist(min_links_in_request_, max_links_in_request_);
+  std::uniform_int_distribution<int> n_links_dist(min_links_in_request_,
+                                                  std::min((size_t)max_links_in_request_, links_.size()));
   std::uniform_int_distribution<dfmessages::timestamp_t> window_ticks_dist(min_readout_window_ticks_, max_readout_window_ticks_);
 
   while(true){
