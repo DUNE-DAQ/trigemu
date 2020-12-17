@@ -1,0 +1,3 @@
+src/trigemu/triggerdecisionemulator/
+test/src/trigemu/faketimesyncsource/
+test/src/trigemu/fakeinhibitgenerator/
