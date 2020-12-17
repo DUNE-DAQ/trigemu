@@ -9,7 +9,7 @@
 
 #include "TriggerDecisionEmulator.hpp"
 
-#include "cdf/ComponentRequest.hpp"
+#include "dataformats/ComponentRequest.hpp"
 
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
@@ -155,10 +155,10 @@ void TriggerDecisionEmulator::send_trigger_decisions()
     if(!triggers_are_inhibited() && !paused_.load()){
 
       dfmessages::TriggerDecision decision;
-      decision.TriggerNumber=last_trigger_number_++;
-      decision.RunNumber=run_number_;
-      decision.TriggerTimestamp=next_trigger_timestamp;
-      decision.TriggerType=trigger_type_;
+      decision.trigger_number=last_trigger_number_++;
+      decision.run_number=run_number_;
+      decision.trigger_timestamp=next_trigger_timestamp;
+      decision.trigger_type=trigger_type_;
 
       int n_links = n_links_dist(random_engine);
 
@@ -168,15 +168,14 @@ void TriggerDecisionEmulator::send_trigger_decisions()
 
       for(auto link: this_links){
         dfmessages::ComponentRequest request;
-        request.RequestTimestamp=next_trigger_timestamp;
-        request.RequestOffset=trigger_window_offset_;
-        request.RequestWidth=window_ticks_dist(random_engine);
+        request.window_offset=trigger_window_offset_;
+        request.window_width=window_ticks_dist(random_engine);
 
-        decision.Components.insert({link, request});
+        decision.components.insert({link, request});
       }
 
-      ERS_DEBUG(0,"At timestamp " << current_timestamp_estimate_.load() << ", pushing a decision with triggernumber " << decision.TriggerNumber
-               << " timestamp " << decision.TriggerTimestamp
+      ERS_DEBUG(0,"At timestamp " << current_timestamp_estimate_.load() << ", pushing a decision with triggernumber " << decision.trigger_number
+               << " timestamp " << decision.trigger_timestamp
                << " number of links " << n_links);
       trigger_decision_sink_->push(decision, std::chrono::milliseconds(10));
     }
@@ -204,25 +203,25 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
     while(time_sync_source_->can_pop()){
       dfmessages::TimeSync t{INVALID_TIMESTAMP};
       time_sync_source_->pop(t);
-      ERS_DEBUG(1,"Got a TimeSync timestamp = " << t.DAQTime << ", system time = " << t.SystemTime);
-      if(most_recent_timesync.DAQTime==INVALID_TIMESTAMP ||
-         t.DAQTime > most_recent_timesync.DAQTime){
+      ERS_DEBUG(1,"Got a TimeSync timestamp = " << t.DAQ_time << ", system time = " << t.system_time);
+      if(most_recent_timesync.DAQ_time==INVALID_TIMESTAMP ||
+         t.DAQ_time > most_recent_timesync.DAQ_time){
         most_recent_timesync=t;
       }
     }
 
-    if(most_recent_timesync.DAQTime!=INVALID_TIMESTAMP){
+    if(most_recent_timesync.DAQ_time!=INVALID_TIMESTAMP){
       // Update the current timestamp estimate, based on the most recently-read TimeSync
       using namespace std::chrono;
       // std::chrono is the worst
       auto time_now=static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count());
-      if(time_now < most_recent_timesync.SystemTime){
+      if(time_now < most_recent_timesync.system_time){
         ers::error(InvalidTimeSync(ERS_HERE));
       }
       else {
-          auto delta_time=time_now - most_recent_timesync.SystemTime;
+          auto delta_time=time_now - most_recent_timesync.system_time;
           const uint64_t CLOCK_FREQUENCY_HZ=62500000;
-          const dfmessages::timestamp_t new_timestamp=most_recent_timesync.DAQTime + delta_time*CLOCK_FREQUENCY_HZ/1000000;
+          const dfmessages::timestamp_t new_timestamp=most_recent_timesync.DAQ_time + delta_time*CLOCK_FREQUENCY_HZ/1000000;
           if(i++ % 100 == 0){
               ERS_DEBUG(1,"Updating timestamp estimate to " << new_timestamp);
           }
@@ -241,8 +240,8 @@ void TriggerDecisionEmulator::read_inhibit_queue()
     while(trigger_inhibit_source_->can_pop()){
       dfmessages::TriggerInhibit ti;
       trigger_inhibit_source_->pop(ti);
-      inhibited_.store(ti.Busy);
-      if(ti.Busy) {
+      inhibited_.store(ti.busy);
+      if(ti.busy) {
 	ERS_INFO("Dataflow is BUSY.");
       } 
    }
