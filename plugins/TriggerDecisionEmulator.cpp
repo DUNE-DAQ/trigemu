@@ -33,6 +33,7 @@ namespace trigemu {
 
 TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   : DAQModule(name)
+  , run_number_(0)
   , time_sync_source_(nullptr)
   , trigger_inhibit_source_(nullptr)
   , trigger_decision_sink_(nullptr)
@@ -88,12 +89,11 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 }
 
 void
-TriggerDecisionEmulator::do_start(const nlohmann::json& /*startobj*/)
+TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
 {
-
-  // TODO : how to we get the run number?
-
+  run_number_ = startobj.value<dunedaq::dataformats::run_number_t>("run", 0);
   current_timestamp_estimate_.store(INVALID_TIMESTAMP);
+
   running_flag_.store(true);
   paused_.store(false);
   threads_.emplace_back(&TriggerDecisionEmulator::estimate_current_timestamp, this);
