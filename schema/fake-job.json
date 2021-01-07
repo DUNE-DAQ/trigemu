@@ -118,7 +118,8 @@
                         "max_readout_window_ticks": 320000,
                         "min_links_in_request": 2,
                         "min_readout_window_ticks": 320000,
-                        "trigger_interval_ticks": 64000000
+                        "trigger_interval_ticks": 64000000,
+                        "clock_frequency_hz": 50000000
                     },
                     "match": "tde"
                 }

@@ -113,6 +113,8 @@ private:
   int min_links_in_request_;
   int max_links_in_request_;
 
+  uint64_t clock_frequency_hz_;
+  
   // The estimate of the current timestamp
   std::atomic<dfmessages::timestamp_t> current_timestamp_estimate_{INVALID_TIMESTAMP};
 

@@ -72,6 +72,8 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   min_links_in_request_=params.min_links_in_request;
   max_links_in_request_=params.max_links_in_request;
   trigger_interval_ticks_.store(params.trigger_interval_ticks);
+  clock_frequency_hz_=params.clock_frequency_hz;
+  
   links_.clear();
   for(auto const& link: params.links){
     // TODO: Set APA properly
@@ -220,8 +222,7 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
       }
       else {
           auto delta_time=time_now - most_recent_timesync.system_time;
-          const uint64_t CLOCK_FREQUENCY_HZ=62500000;
-          const dfmessages::timestamp_t new_timestamp=most_recent_timesync.DAQ_time + delta_time*CLOCK_FREQUENCY_HZ/1000000;
+          const dfmessages::timestamp_t new_timestamp=most_recent_timesync.DAQ_time + delta_time*clock_frequency_hz_/1000000;
           if(i++ % 100 == 0){
               ERS_DEBUG(1,"Updating timestamp estimate to " << new_timestamp);
           }
