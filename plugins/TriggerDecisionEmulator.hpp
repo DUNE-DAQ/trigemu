@@ -96,10 +96,16 @@ private:
 
   // Triggers are produced for timestamps:
   //    trigger_offset_ + n*trigger_interval_ticks_;
-  // with n integer
+  // with n integer.
+  //
+  // A trigger for timestamp t is emitted approximately
+  // `trigger_delay_ms_` milliseconds after the timestamp t is
+  // estimated to occur, so we can try not to emit trigger requests
+  // for data that's in the future
   dfmessages::timestamp_t trigger_offset_{0};
   std::atomic<dfmessages::timestamp_t> trigger_interval_ticks_{0};
-
+  int trigger_delay_ms_{0};
+  
   // The offset and width of the windows to be requested in the trigger
   dfmessages::timestamp_diff_t trigger_window_offset_{0};
   dfmessages::timestamp_t min_readout_window_ticks_{0};

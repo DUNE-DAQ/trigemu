@@ -73,6 +73,8 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   min_links_in_request_=params.min_links_in_request;
   max_links_in_request_=params.max_links_in_request;
   trigger_interval_ticks_.store(params.trigger_interval_ticks);
+  trigger_offset_=params.trigger_offset;
+  trigger_delay_ms_=params.trigger_delay_ms;
   clock_frequency_hz_=params.clock_frequency_hz;
   
   links_.clear();
@@ -135,6 +137,7 @@ void TriggerDecisionEmulator::send_trigger_decisions()
   }
 
   dfmessages::timestamp_t ts=current_timestamp_estimate_.load();
+  const dfmessages::timestamp_diff_t trigger_delay_ticks=clock_frequency_hz_*trigger_delay_ms_/1000;
   // Round up to the next multiple of trigger_interval_ticks_
   dfmessages::timestamp_t next_trigger_timestamp=(ts/trigger_interval_ticks_.load()   + 1)*trigger_interval_ticks_.load() + trigger_offset_;
   ERS_DEBUG(1,"Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp);
@@ -148,7 +151,7 @@ void TriggerDecisionEmulator::send_trigger_decisions()
 
   while(true){
     while(running_flag_.load() &&
-          (current_timestamp_estimate_.load() < next_trigger_timestamp ||
+          (current_timestamp_estimate_.load() < (next_trigger_timestamp+trigger_delay_ticks) ||
            current_timestamp_estimate_.load()==INVALID_TIMESTAMP)){
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }

@@ -8,6 +8,7 @@ local types = {
   link_count: s.number("link_count", dtype="i4"),
   ticks: s.number("ticks", dtype="i8"),
   freq: s.number("frequency", dtype="u8"),
+  ms: s.number("ms", dtype="i4"),
   
   conf : s.record("ConfParams", [
     s.field("links", self.linkvec,
@@ -22,6 +23,10 @@ local types = {
       doc="Maximum readout window to ask data for in 16 ns time ticks (default 5.12 ms)"),
     s.field("trigger_interval_ticks", self.ticks, 64000000,
       doc="Interval between triggers in 16 ns time ticks (default 1.024 s) "),
+    s.field("trigger_offset", self.ticks, 0,
+      doc="Trigger timestamp modulo trigger_interval_ticks (default zero)"),
+    s.field("trigger_delay_ms", self.ms, 10,
+      doc="Number of milliseconds after timestamp occurs at which to emit trigger decision"),
     s.field("clock_frequency_hz", self.ticks, 50000000,
       doc="Assumed clock frequency in Hz (for current-timestamp estimation)"),
   ], doc="TriggerDecisionEmulator configuration parameters"),
