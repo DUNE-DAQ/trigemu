@@ -33,12 +33,12 @@ namespace trigemu {
 
 TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   : DAQModule(name)
-  , run_number_(0)
   , time_sync_source_(nullptr)
   , trigger_inhibit_source_(nullptr)
   , trigger_decision_sink_(nullptr)
   , inhibited_(false)
   , last_trigger_number_(0)
+  , run_number_(0)
 {
   register_command("conf", &TriggerDecisionEmulator::do_configure);
   register_command("start", &TriggerDecisionEmulator::do_start);
