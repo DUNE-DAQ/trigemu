@@ -178,6 +178,7 @@ void TriggerDecisionEmulator::send_trigger_decisions()
 
       for(auto link: this_links){
         dfmessages::ComponentRequest request;
+        request.component = link;
         request.window_offset=trigger_window_offset_;
         request.window_width=window_ticks_dist(random_engine);
 
