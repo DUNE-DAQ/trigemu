@@ -12,8 +12,8 @@ namespace dunedaq::trigemu {
 
 FakeTimeSyncSource::FakeTimeSyncSource(const std::string& name)
   : DAQModule(name)
-  , running_flag_{false}
-  , sync_interval_ticks_{0} 
+  , m_running_flag{false}
+  , m_sync_interval_ticks{0} 
 {
   register_command("conf",      &FakeTimeSyncSource::do_configure);
   register_command("start",     &FakeTimeSyncSource::do_start);
@@ -26,7 +26,7 @@ FakeTimeSyncSource::init(const nlohmann::json& iniobj)
   auto ini = iniobj.get<appfwk::cmd::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "time_sync_sink") {
-      time_sync_sink_.reset(new appfwk::DAQSink<dfmessages::TimeSync>(qi.inst));
+      m_time_sync_sink.reset(new appfwk::DAQSink<dfmessages::TimeSync>(qi.inst));
     }
   }
 }
@@ -35,22 +35,22 @@ void
 FakeTimeSyncSource::do_configure(const nlohmann::json& confobj)
 {
   auto params=confobj.get<faketimesyncsource::ConfParams>();
-  sync_interval_ticks_ = params.sync_interval_ticks;
+  m_sync_interval_ticks = params.sync_interval_ticks;
 }
 
 void
 FakeTimeSyncSource::do_start(const nlohmann::json& /*startobj*/)
 {
-  running_flag_.store(true);
-  threads_.push_back(std::thread(&FakeTimeSyncSource::send_timesyncs, this, sync_interval_ticks_));
+  m_running_flag.store(true);
+  m_threads.push_back(std::thread(&FakeTimeSyncSource::send_timesyncs, this, m_sync_interval_ticks));
 }
 
 void
 FakeTimeSyncSource::do_stop(const nlohmann::json& /* stopobj */)
 {
-  running_flag_.store(false);
-  for(auto& thread: threads_) thread.join();
-  threads_.clear();
+  m_running_flag.store(false);
+  for(auto& thread: m_threads) thread.join();
+  m_threads.clear();
 }
 
 void
@@ -70,16 +70,16 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
   dfmessages::timestamp_t next_timestamp=(now_timestamp/timesync_interval_ticks+1)*timesync_interval_ticks;
 
   while(true){
-    while(running_flag_.load() && now_timestamp < next_timestamp){
+    while(m_running_flag.load() && now_timestamp < next_timestamp){
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
       time_now=system_clock::now().time_since_epoch();
       now_system_us=duration_cast<microseconds>(time_now).count();
       now_timestamp=duration_cast<ticks>(time_now).count();
     }
-    if(!running_flag_.load()) break;
+    if(!m_running_flag.load()) break;
     ERS_DEBUG(1,"Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us);
-    time_sync_sink_->push(dfmessages::TimeSync(now_timestamp, now_system_us));
+    m_time_sync_sink->push(dfmessages::TimeSync(now_timestamp, now_system_us));
 
     next_timestamp+=timesync_interval_ticks;
   }

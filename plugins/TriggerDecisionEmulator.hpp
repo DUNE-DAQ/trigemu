@@ -78,7 +78,7 @@ private:
   void do_resume(const nlohmann::json& obj);
 
   // Are we inhibited from sending triggers?
-  bool triggers_are_inhibited() { return inhibited_.load(); }
+  bool triggers_are_inhibited() { return m_inhibited.load(); }
 
   // Thread functions
   void send_trigger_decisions();
@@ -86,56 +86,56 @@ private:
   void read_inhibit_queue();
 
   // Queue sources and sinks
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> time_sync_source_;
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> trigger_inhibit_source_;
-  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> trigger_decision_sink_;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
+  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
   static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP=0xffffffffffffffff;
 
   // Variables controlling how we produce triggers
 
   // Triggers are produced for timestamps:
-  //    trigger_offset_ + n*trigger_interval_ticks_;
+  //    m_trigger_offset + n*m_trigger_interval_ticks;
   // with n integer.
   //
   // A trigger for timestamp t is emitted approximately
-  // `trigger_delay_ticks_` ticks after the timestamp t is
+  // `m_trigger_delay_ticks` ticks after the timestamp t is
   // estimated to occur, so we can try not to emit trigger requests
   // for data that's in the future
-  dfmessages::timestamp_t trigger_offset_{0};
-  std::atomic<dfmessages::timestamp_t> trigger_interval_ticks_{0};
+  dfmessages::timestamp_t m_trigger_offset{0};
+  std::atomic<dfmessages::timestamp_t> m_trigger_interval_ticks{0};
   int trigger_delay_ticks_{0};
   
   // The offset and width of the windows to be requested in the trigger
-  dfmessages::timestamp_diff_t trigger_window_offset_{0};
-  dfmessages::timestamp_t min_readout_window_ticks_{0};
-  dfmessages::timestamp_t max_readout_window_ticks_{0};
+  dfmessages::timestamp_diff_t m_trigger_window_offset{0};
+  dfmessages::timestamp_t m_min_readout_window_ticks{0};
+  dfmessages::timestamp_t m_max_readout_window_ticks{0};
 
   // The trigger type for the trigger requests
-  dfmessages::trigger_type_t trigger_type_{0xff};
+  dfmessages::trigger_type_t m_trigger_type{0xff};
 
   // The link IDs which should be read out in the trigger decision
-  std::vector<dfmessages::GeoID> links_;
-  int min_links_in_request_;
-  int max_links_in_request_;
+  std::vector<dfmessages::GeoID> m_links;
+  int m_min_links_in_request;
+  int m_max_links_in_request;
 
-  uint64_t clock_frequency_hz_;
+  uint64_t m_clock_frequency_hz;
   
   // The estimate of the current timestamp
-  std::atomic<dfmessages::timestamp_t> current_timestamp_estimate_{INVALID_TIMESTAMP};
+  std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{INVALID_TIMESTAMP};
 
 
   // The most recent inhibit status we've seen (true = inhibited)
-  std::atomic<bool> inhibited_;
+  std::atomic<bool> m_inhibited;
   // paused state, equivalent to inhibited
-  std::atomic<bool> paused_;
+  std::atomic<bool> m_paused;
 
-  dfmessages::trigger_number_t last_trigger_number_;
+  dfmessages::trigger_number_t m_last_trigger_number;
 
-  dfmessages::run_number_t run_number_;
+  dfmessages::run_number_t m_run_number;
 
-  std::vector<std::thread> threads_;
-  std::atomic<bool> running_flag_;
+  std::vector<std::thread> m_threads;
+  std::atomic<bool> m_running_flag;
 };
 } // namespace trigemu
 } // namespace dunedaq

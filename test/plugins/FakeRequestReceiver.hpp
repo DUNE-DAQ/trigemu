@@ -25,15 +25,15 @@ public:
   
 private:
   // Data Source
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecision>> trigger_decision_source_;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecision>> m_trigger_decision_source;
   // Commands
   void do_start(const nlohmann::json& obj);
   void do_stop(const nlohmann::json& obj);
 
   void run();
   
-  std::atomic<bool> running_flag_;
-  std::vector<std::thread> threads_;
+  std::atomic<bool> m_running_flag;
+  std::vector<std::thread> m_threads;
   
 };
   

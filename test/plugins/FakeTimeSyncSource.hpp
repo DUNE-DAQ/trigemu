@@ -31,12 +31,12 @@ private:
 
   void send_timesyncs(const dfmessages::timestamp_t timesync_interval_ticks);
   
-  std::atomic<bool> running_flag_;
-  std::vector<std::thread> threads_;
+  std::atomic<bool> m_running_flag;
+  std::vector<std::thread> m_threads;
   
-  std::unique_ptr<appfwk::DAQSink<dfmessages::TimeSync>> time_sync_sink_;
+  std::unique_ptr<appfwk::DAQSink<dfmessages::TimeSync>> m_time_sync_sink;
 
-  dfmessages::timestamp_t sync_interval_ticks_;  
+  dfmessages::timestamp_t m_sync_interval_ticks;  
 };
   
 } // namespace dunedaq::trigemu
