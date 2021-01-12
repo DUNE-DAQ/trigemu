@@ -120,7 +120,7 @@ void
 TriggerDecisionEmulator::do_pause(const nlohmann::json& /*pauseobj*/)
 {
     paused_.store(true);
-    ERS_INFO("******* Triggers PAUSED! *********");
+    ERS_LOG("******* Triggers PAUSED! *********");
 }
 
 void
@@ -129,7 +129,7 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
     auto params=resumeobj.get<triggerdecisionemulator::ResumeParams>();
     trigger_interval_ticks_.store(params.trigger_interval_ticks);
 
-    ERS_INFO("******* Triggers RESUMED! *********");
+    ERS_LOG("******* Triggers RESUMED! *********");
     paused_.store(false);
 }
 
@@ -254,7 +254,7 @@ void TriggerDecisionEmulator::read_inhibit_queue()
       trigger_inhibit_source_->pop(ti);
       inhibited_.store(ti.busy);
       if(ti.busy) {
-	ERS_INFO("Dataflow is BUSY.");
+	ERS_LOG("Dataflow is BUSY.");
       } 
    }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
