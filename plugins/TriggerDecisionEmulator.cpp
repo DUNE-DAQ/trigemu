@@ -101,8 +101,9 @@ TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
   m_run_number = startobj.value<dunedaq::dataformats::run_number_t>("run", 0);
   m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
 
+  m_paused.store(true);
   m_running_flag.store(true);
-  m_paused.store(false);
+
   m_threads.emplace_back(&TriggerDecisionEmulator::estimate_current_timestamp, this);
   m_threads.emplace_back(&TriggerDecisionEmulator::read_inhibit_queue, this);
   m_threads.emplace_back(&TriggerDecisionEmulator::send_trigger_decisions, this);
@@ -191,7 +192,7 @@ void TriggerDecisionEmulator::send_trigger_decisions()
       m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
     }
     else{
-      ERS_DEBUG(1,"Triggers are inhibited. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
+      ERS_DEBUG(1,"Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
     }
 
     next_trigger_timestamp+=m_trigger_interval_ticks.load();
@@ -216,7 +217,7 @@ void TriggerDecisionEmulator::estimate_current_timestamp()
       m_time_sync_source->pop(t);
       dfmessages::timestamp_t estimate=m_current_timestamp_estimate.load();
       dfmessages::timestamp_diff_t diff=estimate-t.DAQ_time;
-      ERS_DEBUG(1,"Got a TimeSync timestamp = " << t.DAQ_time << ", system time = " << t.system_time << " when current timestamp estimate was " << estimate << ". diff=" << diff );
+      ERS_DEBUG(10,"Got a TimeSync timestamp = " << t.DAQ_time << ", system time = " << t.system_time << " when current timestamp estimate was " << estimate << ". diff=" << diff );
       if(most_recent_timesync.DAQ_time==INVALID_TIMESTAMP ||
          t.DAQ_time > most_recent_timesync.DAQ_time){
         most_recent_timesync=t;
