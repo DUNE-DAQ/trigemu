@@ -81,6 +81,7 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   m_trigger_offset=params.trigger_offset;
   trigger_delay_ticks_=params.trigger_delay_ticks;
   m_clock_frequency_hz=params.clock_frequency_hz;
+  m_repeat_trigger_count=params.repeat_trigger_count;
   
   m_links.clear();
   for(auto const& link: params.links){
@@ -134,6 +135,37 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
     m_paused.store(false);
 }
 
+dfmessages::TriggerDecision TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
+{
+  static std::default_random_engine random_engine(m_run_number);
+  static std::uniform_int_distribution<int> n_links_dist(m_min_links_in_request,
+                                                  std::min((size_t)m_max_links_in_request, m_links.size()));
+  static std::uniform_int_distribution<dfmessages::timestamp_t> window_ticks_dist(m_min_readout_window_ticks,m_max_readout_window_ticks);
+
+  dfmessages::TriggerDecision decision;
+  decision.trigger_number=m_last_trigger_number+1;
+  decision.run_number=m_run_number;
+  decision.trigger_timestamp=timestamp;
+  decision.trigger_type=m_trigger_type;
+
+  int n_links = n_links_dist(random_engine);
+
+  std::vector<dfmessages::GeoID> this_links;
+  std::sample(m_links.begin(), m_links.end(), std::back_inserter(this_links),
+              n_links, random_engine);
+
+  for(auto link: this_links){
+    dfmessages::ComponentRequest request;
+    request.component = link;
+    request.window_offset=m_trigger_window_offset;
+    request.window_width=window_ticks_dist(random_engine);
+
+    decision.components.insert({link, request});
+  }
+
+  return decision;
+}
+  
 void TriggerDecisionEmulator::send_trigger_decisions()
 {
   // Wait for there to be a valid timestamp estimate before we start
@@ -150,11 +182,6 @@ void TriggerDecisionEmulator::send_trigger_decisions()
 
   assert(next_trigger_timestamp > ts);
 
-  std::default_random_engine random_engine(m_run_number);
-  std::uniform_int_distribution<int> n_links_dist(m_min_links_in_request,
-                                                  std::min((size_t)m_max_links_in_request, m_links.size()));
-  std::uniform_int_distribution<dfmessages::timestamp_t> window_ticks_dist(m_min_readout_window_ticks,m_max_readout_window_ticks);
-
   while(true){
     while(m_running_flag.load() &&
           (m_current_timestamp_estimate.load() < (next_trigger_timestamp+trigger_delay_ticks_) ||
@@ -165,31 +192,16 @@ void TriggerDecisionEmulator::send_trigger_decisions()
 
     if(!triggers_are_inhibited() && !m_paused.load()){
 
-      dfmessages::TriggerDecision decision;
-      decision.trigger_number=m_last_trigger_number++;
-      decision.run_number=m_run_number;
-      decision.trigger_timestamp=next_trigger_timestamp;
-      decision.trigger_type=m_trigger_type;
+      dfmessages::TriggerDecision decision=create_decision(next_trigger_timestamp);
 
-      int n_links = n_links_dist(random_engine);
-
-      std::vector<dfmessages::GeoID> this_links;
-      std::sample(m_links.begin(), m_links.end(), std::back_inserter(this_links),
-                  n_links, random_engine);
-
-      for(auto link: this_links){
-        dfmessages::ComponentRequest request;
-        request.component = link;
-        request.window_offset=m_trigger_window_offset;
-        request.window_width=window_ticks_dist(random_engine);
-
-        decision.components.insert({link, request});
+      for(int i=0; i<m_repeat_trigger_count; ++i){
+        ERS_DEBUG(0,"At timestamp " << m_current_timestamp_estimate.load() << ", pushing a decision with triggernumber " << decision.trigger_number
+                  << " timestamp " << decision.trigger_timestamp
+                  << " number of links " << decision.components.size());
+        m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
+        decision.trigger_number++;
+        m_last_trigger_number++;
       }
-
-      ERS_DEBUG(0,"At timestamp " << m_current_timestamp_estimate.load() << ", pushing a decision with triggernumber " << decision.trigger_number
-               << " timestamp " << decision.trigger_timestamp
-               << " number of links " << n_links);
-      m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
     }
     else{
       ERS_DEBUG(1,"Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);

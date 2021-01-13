@@ -85,6 +85,9 @@ private:
   void estimate_current_timestamp();
   void read_inhibit_queue();
 
+  // Create the next trigger decision
+  dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
+  
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
@@ -119,6 +122,8 @@ private:
   int m_min_links_in_request;
   int m_max_links_in_request;
 
+  int m_repeat_trigger_count{1};
+  
   uint64_t m_clock_frequency_hz;
   
   // The estimate of the current timestamp
