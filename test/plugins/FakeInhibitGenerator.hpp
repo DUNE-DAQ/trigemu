@@ -32,11 +32,11 @@ private:
 
   void send_inhibits(const std::chrono::milliseconds inhibit_interval_ms);
   
-  std::atomic<bool> running_flag_;
-  std::vector<std::thread> threads_;
+  std::atomic<bool> m_running_flag;
+  std::vector<std::thread> m_threads;
   
-  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerInhibit>> trigger_inhibit_sink_;
-  std::chrono::milliseconds inhibit_interval_ms_; 
+  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerInhibit>> m_trigger_inhibit_sink;
+  std::chrono::milliseconds m_inhibit_interval_ms; 
 };
   
 } // namespace dunedaq::trigemu
