@@ -20,8 +20,6 @@
 #include "trigemu/triggerdecisionemulator/Structs.hpp"
 #include "trigemu/triggerdecisionemulator/Nljs.hpp"
 
-#include "appfwk/cmd/Nljs.hpp"
-
 #include <random>
 #include <cassert>
 
@@ -51,17 +49,21 @@ void
 TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::cmd::ModInit>();
-  for (const auto& qi : ini.qinfos) {
-    if (qi.name == "time_sync_source") {
-      m_time_sync_source.reset(new appfwk::DAQSource<dfmessages::TimeSync>(qi.inst));
-    }
-    if (qi.name == "trigger_inhibit_source") {
-      m_trigger_inhibit_source.reset(new appfwk::DAQSource<dfmessages::TriggerInhibit>(qi.inst));
-    }
-    if (qi.name == "trigger_decision_sink") {
-      m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
-    }
-  }
+  connect_sinks_sources(ini,
+                        m_time_sync_source,       "time_sync_source",
+                        m_trigger_inhibit_source, "trigger_inhibit_source",
+                        m_trigger_decision_sink,  "trigger_decision_sink");
+  // for (const auto& qi : ini.qinfos) {
+  //   if (qi.name == "time_sync_source") {
+  //     m_time_sync_source.reset(new appfwk::DAQSource<dfmessages::TimeSync>(qi.inst));
+  //   }
+  //   if (qi.name == "trigger_inhibit_source") {
+  //     m_trigger_inhibit_source.reset(new appfwk::DAQSource<dfmessages::TriggerInhibit>(qi.inst));
+  //   }
+  //   if (qi.name == "trigger_decision_sink") {
+  //     m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
+  //   }
+  // }
 }
 
 void

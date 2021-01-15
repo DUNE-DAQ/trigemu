@@ -24,6 +24,8 @@
 #include "appfwk/DAQSink.hpp"
 #include "appfwk/DAQSource.hpp"
 
+#include "appfwk/cmd/Nljs.hpp"
+
 #include <ers/ers.h>
 
 #include <memory>
@@ -84,6 +86,22 @@ private:
   void send_trigger_decisions();
   void estimate_current_timestamp();
   void read_inhibit_queue();
+
+  // Base case for the variadic template function below
+  void connect_sinks_sources(appfwk::cmd::ModInit&) {}
+
+  template<typename T, typename... Args>
+  void connect_sinks_sources(appfwk::cmd::ModInit& conf, std::unique_ptr<T>& p, const char* c, Args&&... args)
+  {
+    // Connect the first queue in the list
+    for (const auto& qi : conf.qinfos) {
+      if (qi.name == c) {
+        p.reset(new T(qi.inst));
+      }
+    }
+    // Recursively do the rest
+    connect_sinks_sources(conf, args...);
+  }
 
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
