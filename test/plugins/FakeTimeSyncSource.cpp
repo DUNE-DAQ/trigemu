@@ -1,12 +1,22 @@
+/**
+ *
+ * This is part of the DUNE DAQ Application Framework, copyright 2020.
+ * Licensing/copyright details are in the COPYING file that you should have
+ * received with this code.
+ */
+
 #include "FakeTimeSyncSource.hpp"
 #include "appfwk/cmd/Nljs.hpp"
-#include "dfmessages/TimeSync.hpp"
-#include "dfmessages/Types.hpp"
-#include "trigemu/faketimesyncsource/Nljs.hpp"
-#include <cstdint>
 
 #include "ers/ers.h"
+
+#include "dfmessages/TimeSync.hpp"
+#include "dfmessages/Types.hpp"
+
+#include "trigemu/faketimesyncsource/Nljs.hpp"
 #include "trigemu/faketimesyncsource/Structs.hpp"
+
+#include <string>
 
 namespace dunedaq::trigemu {
 
@@ -57,16 +67,16 @@ FakeTimeSyncSource::do_stop(const nlohmann::json& /* stopobj */)
 void
 FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interval_ticks)
 {
-  const uint64_t CLOCK_FREQUENCY_HZ = 62500000;
+  const uint64_t CLOCK_FREQUENCY_HZ = 62500000; // NOLINT
 
   using namespace std::chrono;
 
-  using ticks = duration<uint64_t, std::ratio<1, CLOCK_FREQUENCY_HZ>>;
+  using ticks = duration<uint64_t, std::ratio<1, CLOCK_FREQUENCY_HZ>>; // NOLINT
 
   // std::chrono is the worst
   auto time_now = system_clock::now().time_since_epoch();
   auto now_system_us = duration_cast<microseconds>(time_now).count();
-  uint64_t now_timestamp = duration_cast<ticks>(time_now).count();
+  uint64_t now_timestamp = duration_cast<ticks>(time_now).count(); // NOLINT
 
   dfmessages::timestamp_t next_timestamp = (now_timestamp / timesync_interval_ticks + 1) * timesync_interval_ticks;
 

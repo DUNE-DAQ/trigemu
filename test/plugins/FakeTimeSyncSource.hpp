@@ -1,9 +1,20 @@
+/**
+ *
+ * This is part of the DUNE DAQ Application Framework, copyright 2020.
+ * Licensing/copyright details are in the COPYING file that you should have
+ * received with this code.
+ */
+
 #ifndef TRIGEMU_TEST_PLUGINS_FAKETIMESYNCSOURCE_HPP_
 #define TRIGEMU_TEST_PLUGINS_FAKETIMESYNCSOURCE_HPP_
 
 #include "appfwk/DAQModule.hpp"
 #include "appfwk/DAQSink.hpp"
 #include "dfmessages/TimeSync.hpp"
+
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace dunedaq::trigemu {
 
@@ -37,4 +48,4 @@ private:
 
 } // namespace dunedaq::trigemu
 
-#endif // include guard
+#endif // TRIGEMU_TEST_PLUGINS_FAKETIMESYNCSOURCE_HPP_

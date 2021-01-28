@@ -1,3 +1,9 @@
+/**
+ *
+ * This is part of the DUNE DAQ Application Framework, copyright 2020.
+ * Licensing/copyright details are in the COPYING file that you should have
+ * received with this code.
+ */
 #include "FakeInhibitGenerator.hpp"
 
 #include "trigemu/fakeinhibitgenerator/Nljs.hpp"
@@ -7,9 +13,10 @@
 
 #include "appfwk/cmd/Nljs.hpp"
 
-#include <cstdint>
-
 #include "ers/ers.h"
+
+#include <cstdint>
+#include <string>
 
 namespace dunedaq::trigemu {
 

@@ -1,8 +1,16 @@
+/**
+ *
+ * This is part of the DUNE DAQ Application Framework, copyright 2020.
+ * Licensing/copyright details are in the COPYING file that you should have
+ * received with this code.
+ */
 #include "FakeRequestReceiver.hpp"
 #include "appfwk/cmd/Nljs.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 
 #include "ers/ers.h"
+
+#include <string>
 
 namespace dunedaq::trigemu {
 

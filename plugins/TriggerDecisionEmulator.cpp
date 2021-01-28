@@ -22,8 +22,11 @@
 
 #include "appfwk/cmd/Nljs.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <random>
+#include <string>
+#include <vector>
 
 namespace dunedaq {
 namespace trigemu {
@@ -82,8 +85,8 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 
   m_links.clear();
   for (auto const& link : params.links) {
-    // TODO: Set APA properly
-    m_links.push_back(dfmessages::GeoID{ 0, static_cast<uint32_t>(link) });
+    // For the future: Set APA properly
+    m_links.push_back(dfmessages::GeoID{ 0, static_cast<uint32_t>(link) }); // NOLINT
   }
 
   // Sanity-check the values
@@ -244,14 +247,14 @@ TriggerDecisionEmulator::estimate_current_timestamp()
       using namespace std::chrono;
       // std::chrono is the worst
       auto time_now =
-        static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count());
+        static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count()); // NOLINT
       if (time_now < most_recent_timesync.system_time) {
         ers::error(InvalidTimeSync(ERS_HERE));
       } else {
         auto delta_time = time_now - most_recent_timesync.system_time;
         const dfmessages::timestamp_t new_timestamp =
           most_recent_timesync.DAQ_time + delta_time * m_clock_frequency_hz / 1000000;
-        if (i++ % 100 == 0) {
+        if (i++ % 100 == 0) { // NOLINT
           ERS_DEBUG(1, "Updating timestamp estimate to " << new_timestamp);
         }
         m_current_timestamp_estimate.store(new_timestamp);

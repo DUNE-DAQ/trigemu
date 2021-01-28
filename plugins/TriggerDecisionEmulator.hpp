@@ -11,8 +11,8 @@
  * received with this code.
  */
 
-#ifndef TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
-#define TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
+#ifndef TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
+#define TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
 
 #include "dataformats/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
@@ -116,7 +116,7 @@ private:
 
   int m_repeat_trigger_count{ 1 };
 
-  uint64_t m_clock_frequency_hz;
+  uint64_t m_clock_frequency_hz; // NOLINT
 
   // The estimate of the current timestamp
   std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ INVALID_TIMESTAMP };
@@ -136,7 +136,7 @@ private:
 } // namespace trigemu
 } // namespace dunedaq
 
-#endif // TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
+#endif // TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
 
 // Local Variables:
 // c-basic-offset: 2
