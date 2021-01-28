@@ -145,10 +145,10 @@ TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
                                                                                   m_max_readout_window_ticks);
 
   dfmessages::TriggerDecision decision;
-  decision.trigger_number = m_last_trigger_number + 1;
-  decision.run_number = m_run_number;
-  decision.trigger_timestamp = timestamp;
-  decision.trigger_type = m_trigger_type;
+  decision.m_trigger_number = m_last_trigger_number + 1;
+  decision.m_run_number = m_run_number;
+  decision.m_trigger_timestamp = timestamp;
+  decision.m_trigger_type = m_trigger_type;
 
   int n_links = n_links_dist(random_engine);
 
@@ -157,11 +157,11 @@ TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
 
   for (auto link : this_links) {
     dfmessages::ComponentRequest request;
-    request.component = link;
-    request.window_offset = m_trigger_window_offset;
-    request.window_width = window_ticks_dist(random_engine);
+    request.m_component = link;
+    request.m_window_offset = m_trigger_window_offset;
+    request.m_window_width = window_ticks_dist(random_engine);
 
-    decision.components.insert({ link, request });
+    decision.m_components.insert({ link, request });
   }
 
   return decision;
@@ -200,10 +200,10 @@ TriggerDecisionEmulator::send_trigger_decisions()
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
         ERS_DEBUG(0,
                   "At timestamp " << m_current_timestamp_estimate.load() << ", pushing a decision with triggernumber "
-                                  << decision.trigger_number << " timestamp " << decision.trigger_timestamp
-                                  << " number of links " << decision.components.size());
+                                  << decision.m_trigger_number << " timestamp " << decision.m_trigger_timestamp
+                                  << " number of links " << decision.m_components.size());
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
-        decision.trigger_number++;
+        decision.m_trigger_number++;
         m_last_trigger_number++;
       }
     } else {
@@ -232,28 +232,28 @@ TriggerDecisionEmulator::estimate_current_timestamp()
       dfmessages::TimeSync t{ INVALID_TIMESTAMP };
       m_time_sync_source->pop(t);
       dfmessages::timestamp_t estimate = m_current_timestamp_estimate.load();
-      dfmessages::timestamp_diff_t diff = estimate - t.DAQ_time;
+      dfmessages::timestamp_diff_t diff = estimate - t.m_daq_time;
       ERS_DEBUG(10,
-                "Got a TimeSync timestamp = " << t.DAQ_time << ", system time = " << t.system_time
+                "Got a TimeSync timestamp = " << t.m_daq_time << ", system time = " << t.m_system_time
                                               << " when current timestamp estimate was " << estimate
                                               << ". diff=" << diff);
-      if (most_recent_timesync.DAQ_time == INVALID_TIMESTAMP || t.DAQ_time > most_recent_timesync.DAQ_time) {
+      if (most_recent_timesync.m_daq_time == INVALID_TIMESTAMP || t.m_daq_time > most_recent_timesync.m_daq_time) {
         most_recent_timesync = t;
       }
     }
 
-    if (most_recent_timesync.DAQ_time != INVALID_TIMESTAMP) {
+    if (most_recent_timesync.m_daq_time != INVALID_TIMESTAMP) {
       // Update the current timestamp estimate, based on the most recently-read TimeSync
       using namespace std::chrono;
       // std::chrono is the worst
       auto time_now =
         static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count()); // NOLINT
-      if (time_now < most_recent_timesync.system_time) {
+      if (time_now < most_recent_timesync.m_system_time) {
         ers::error(InvalidTimeSync(ERS_HERE));
       } else {
-        auto delta_time = time_now - most_recent_timesync.system_time;
+        auto delta_time = time_now - most_recent_timesync.m_system_time;
         const dfmessages::timestamp_t new_timestamp =
-          most_recent_timesync.DAQ_time + delta_time * m_clock_frequency_hz / 1000000;
+          most_recent_timesync.m_daq_time + delta_time * m_clock_frequency_hz / 1000000;
         if (i++ % 100 == 0) { // NOLINT
           ERS_DEBUG(1, "Updating timestamp estimate to " << new_timestamp);
         }
@@ -272,8 +272,8 @@ TriggerDecisionEmulator::read_inhibit_queue()
     while (m_trigger_inhibit_source->can_pop()) {
       dfmessages::TriggerInhibit ti;
       m_trigger_inhibit_source->pop(ti);
-      m_inhibited.store(ti.busy);
-      if (ti.busy) {
+      m_inhibited.store(ti.m_busy);
+      if (ti.m_busy) {
         ERS_LOG("Dataflow is BUSY.");
       }
     }
