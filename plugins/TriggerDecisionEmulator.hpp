@@ -32,16 +32,9 @@
 
 namespace dunedaq {
 
-ERS_DECLARE_ISSUE(trigemu,
-                  InvalidTimeSync,
-                  "An invalid TimeSync message was received",
-                  ERS_EMPTY)
+ERS_DECLARE_ISSUE(trigemu, InvalidTimeSync, "An invalid TimeSync message was received", ERS_EMPTY)
 
-ERS_DECLARE_ISSUE(trigemu,
-                  InvalidConfiguration,
-                  "An invalid configuration object was received",
-                  ERS_EMPTY)
-
+ERS_DECLARE_ISSUE(trigemu, InvalidConfiguration, "An invalid configuration object was received", ERS_EMPTY)
 
 namespace trigemu {
 
@@ -61,9 +54,8 @@ public:
   TriggerDecisionEmulator(const TriggerDecisionEmulator&) =
     delete; ///< TriggerDecisionEmulator is not copy-constructible
   TriggerDecisionEmulator& operator=(const TriggerDecisionEmulator&) =
-    delete; ///< TriggerDecisionEmulator is not copy-assignable
-  TriggerDecisionEmulator(TriggerDecisionEmulator&&) =
-    delete; ///< TriggerDecisionEmulator is not move-constructible
+    delete;                                                    ///< TriggerDecisionEmulator is not copy-assignable
+  TriggerDecisionEmulator(TriggerDecisionEmulator&&) = delete; ///< TriggerDecisionEmulator is not move-constructible
   TriggerDecisionEmulator& operator=(TriggerDecisionEmulator&&) =
     delete; ///< TriggerDecisionEmulator is not move-assignable
 
@@ -87,13 +79,13 @@ private:
 
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
-  
+
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
-  static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP=0xffffffffffffffff;
+  static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP = 0xffffffffffffffff;
 
   // Variables controlling how we produce triggers
 
@@ -105,30 +97,29 @@ private:
   // `m_trigger_delay_ticks` ticks after the timestamp t is
   // estimated to occur, so we can try not to emit trigger requests
   // for data that's in the future
-  dfmessages::timestamp_t m_trigger_offset{0};
-  std::atomic<dfmessages::timestamp_t> m_trigger_interval_ticks{0};
-  int trigger_delay_ticks_{0};
-  
+  dfmessages::timestamp_t m_trigger_offset{ 0 };
+  std::atomic<dfmessages::timestamp_t> m_trigger_interval_ticks{ 0 };
+  int trigger_delay_ticks_{ 0 };
+
   // The offset and width of the windows to be requested in the trigger
-  dfmessages::timestamp_diff_t m_trigger_window_offset{0};
-  dfmessages::timestamp_t m_min_readout_window_ticks{0};
-  dfmessages::timestamp_t m_max_readout_window_ticks{0};
+  dfmessages::timestamp_diff_t m_trigger_window_offset{ 0 };
+  dfmessages::timestamp_t m_min_readout_window_ticks{ 0 };
+  dfmessages::timestamp_t m_max_readout_window_ticks{ 0 };
 
   // The trigger type for the trigger requests
-  dfmessages::trigger_type_t m_trigger_type{0xff};
+  dfmessages::trigger_type_t m_trigger_type{ 0xff };
 
   // The link IDs which should be read out in the trigger decision
   std::vector<dfmessages::GeoID> m_links;
   int m_min_links_in_request;
   int m_max_links_in_request;
 
-  int m_repeat_trigger_count{1};
-  
-  uint64_t m_clock_frequency_hz;
-  
-  // The estimate of the current timestamp
-  std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{INVALID_TIMESTAMP};
+  int m_repeat_trigger_count{ 1 };
 
+  uint64_t m_clock_frequency_hz;
+
+  // The estimate of the current timestamp
+  std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ INVALID_TIMESTAMP };
 
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
@@ -146,7 +137,6 @@ private:
 } // namespace dunedaq
 
 #endif // TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
-
 
 // Local Variables:
 // c-basic-offset: 2

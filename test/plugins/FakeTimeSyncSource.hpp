@@ -11,18 +11,14 @@ class FakeTimeSyncSource : public dunedaq::appfwk::DAQModule
 {
 public:
   explicit FakeTimeSyncSource(const std::string& name);
-  
-  FakeTimeSyncSource(const FakeTimeSyncSource&) =
-    delete; ///< FakeTimeSyncSource is not copy-constructible
-  FakeTimeSyncSource& operator=(const FakeTimeSyncSource&) =
-    delete; ///< FakeTimeSyncSource is not copy-assignable
-  FakeTimeSyncSource(FakeTimeSyncSource&&) =
-    delete; ///< FakeTimeSyncSource is not move-constructible
-  FakeTimeSyncSource& operator=(FakeTimeSyncSource&&) =
-    delete; ///< FakeTimeSyncSource is not move-assignable
-  
+
+  FakeTimeSyncSource(const FakeTimeSyncSource&) = delete;            ///< FakeTimeSyncSource is not copy-constructible
+  FakeTimeSyncSource& operator=(const FakeTimeSyncSource&) = delete; ///< FakeTimeSyncSource is not copy-assignable
+  FakeTimeSyncSource(FakeTimeSyncSource&&) = delete;                 ///< FakeTimeSyncSource is not move-constructible
+  FakeTimeSyncSource& operator=(FakeTimeSyncSource&&) = delete;      ///< FakeTimeSyncSource is not move-assignable
+
   void init(const nlohmann::json& iniobj) override;
-  
+
 private:
   // Commands
   void do_configure(const nlohmann::json& obj);
@@ -30,15 +26,15 @@ private:
   void do_stop(const nlohmann::json& obj);
 
   void send_timesyncs(const dfmessages::timestamp_t timesync_interval_ticks);
-  
+
   std::atomic<bool> m_running_flag;
   std::vector<std::thread> m_threads;
-  
+
   std::unique_ptr<appfwk::DAQSink<dfmessages::TimeSync>> m_time_sync_sink;
 
-  dfmessages::timestamp_t m_sync_interval_ticks;  
+  dfmessages::timestamp_t m_sync_interval_ticks;
 };
-  
+
 } // namespace dunedaq::trigemu
 
 #endif // include guard
