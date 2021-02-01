@@ -44,6 +44,7 @@ private:
   std::unique_ptr<appfwk::DAQSink<dfmessages::TimeSync>> m_time_sync_sink;
 
   dfmessages::timestamp_t m_sync_interval_ticks;
+  uint64_t m_clock_frequency_hz;
 };
 
 } // namespace dunedaq::trigemu
