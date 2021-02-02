@@ -44,6 +44,9 @@ local types = {
     s.field("repeat_trigger_count", self.repeat_count, 1,
       doc="Number of times to send each trigger decision (for overlapping trigger tests)"),
 
+    s.field("stop_burst_count", self.repeat_count, 0,
+      doc="Number of triggers to send ~simultaneously at stop (for queue draining tests)"),
+
   ], doc="TriggerDecisionEmulator configuration parameters"),
 
   resume: s.record("ResumeParams", [

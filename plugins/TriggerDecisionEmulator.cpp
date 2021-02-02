@@ -83,6 +83,8 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   m_clock_frequency_hz = params.clock_frequency_hz;
   m_repeat_trigger_count = params.repeat_trigger_count;
 
+  m_stop_burst_count = params.stop_burst_count;
+  
   m_links.clear();
   for (auto const& link : params.links) {
     // For the future: Set APA properly
@@ -213,6 +215,23 @@ TriggerDecisionEmulator::send_trigger_decisions()
 
     next_trigger_timestamp += m_trigger_interval_ticks.load();
   }
+
+  // We get here after the stop command is received. We send out
+  // m_stop_burst_count triggers in one go, so that there are triggers
+  // in-flight in the system during the stopping transition. This is
+  // intended to allow tests that all of the queues are correctly
+  // drained elsewhere in the system during the stop transition
+  if(m_stop_burst_count){
+    ERS_DEBUG(0, "Sending " << m_stop_burst_count << " triggers at stop");
+    dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
+  
+    for (int i = 0; i < m_stop_burst_count; ++i) {
+      m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
+      decision.m_trigger_number++;
+      m_last_trigger_number++;
+    }
+  }
+  
 }
 
 void
