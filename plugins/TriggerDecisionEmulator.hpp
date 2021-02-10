@@ -118,6 +118,12 @@ private:
 
   uint64_t m_clock_frequency_hz; // NOLINT
 
+  // At stop, send this number of triggers in one go. The idea here is
+  // to put lots of triggers into the system to check that the stop
+  // sequence is clean, in the sense of all the in-flight triggers
+  // getting to disk
+  int m_stop_burst_count{ 0 };
+  
   // The estimate of the current timestamp
   std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ INVALID_TIMESTAMP };
 
