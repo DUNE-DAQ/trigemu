@@ -99,6 +99,8 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   }
 
   m_configured_flag.store(true);
+  m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
+  
   m_estimate_current_timestamp_thread=std::thread(&TriggerDecisionEmulator::estimate_current_timestamp, this);
   pthread_setname_np(m_estimate_current_timestamp_thread.native_handle(), "tde-ts-est");
 }
@@ -107,7 +109,6 @@ void
 TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
 {
   m_run_number = startobj.value<dunedaq::dataformats::run_number_t>("run", 0);
-  m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
 
   m_paused.store(true);
   m_running_flag.store(true);
