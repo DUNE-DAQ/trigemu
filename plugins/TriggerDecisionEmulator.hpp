@@ -68,6 +68,7 @@ private:
   void do_stop(const nlohmann::json& obj);
   void do_pause(const nlohmann::json& obj);
   void do_resume(const nlohmann::json& obj);
+  void do_scrap(const nlohmann::json& obj);
 
   // Are we inhibited from sending triggers?
   bool triggers_are_inhibited() { return m_inhibited.load(); }
@@ -76,6 +77,11 @@ private:
   void send_trigger_decisions();
   void estimate_current_timestamp();
   void read_inhibit_queue();
+
+  // ...and the std::threads that hold them
+  std::thread m_send_trigger_decisions_thread;
+  std::thread m_estimate_current_timestamp_thread;
+  std::thread m_read_inhibit_queue_thread;
 
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
@@ -123,7 +129,7 @@ private:
   // sequence is clean, in the sense of all the in-flight triggers
   // getting to disk
   int m_stop_burst_count{ 0 };
-  
+
   // The estimate of the current timestamp
   std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ INVALID_TIMESTAMP };
 
@@ -136,8 +142,11 @@ private:
 
   dfmessages::run_number_t m_run_number;
 
-  std::vector<std::thread> m_threads;
-  std::atomic<bool> m_running_flag;
+
+  // Are we in the RUNNING state?
+  std::atomic<bool> m_running_flag{false};
+  // Are we in a configured state, ie after conf and before scrap?
+  std::atomic<bool> m_configured_flag{false};
 };
 } // namespace trigemu
 } // namespace dunedaq
