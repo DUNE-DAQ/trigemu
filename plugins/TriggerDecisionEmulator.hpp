@@ -14,6 +14,8 @@
 #ifndef TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
 #define TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
 
+#include "trigemu/TimestampEstimator.hpp"
+
 #include "dataformats/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
@@ -24,17 +26,11 @@
 #include "appfwk/DAQSink.hpp"
 #include "appfwk/DAQSource.hpp"
 
-#include <ers/ers.h>
-
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace dunedaq {
-
-ERS_DECLARE_ISSUE(trigemu, InvalidTimeSync, "An invalid TimeSync message was received", ERS_EMPTY)
-
-ERS_DECLARE_ISSUE(trigemu, InvalidConfiguration, "An invalid configuration object was received", ERS_EMPTY)
 
 namespace trigemu {
 
@@ -75,14 +71,16 @@ private:
 
   // Thread functions
   void send_trigger_decisions();
-  void estimate_current_timestamp();
+  // void estimate_current_timestamp();
   void read_inhibit_queue();
 
   // ...and the std::threads that hold them
   std::thread m_send_trigger_decisions_thread;
-  std::thread m_estimate_current_timestamp_thread;
+  // std::thread m_estimate_current_timestamp_thread;
   std::thread m_read_inhibit_queue_thread;
 
+  std::unique_ptr<TimestampEstimator> m_timestamp_estimator;
+  
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
 
@@ -130,8 +128,6 @@ private:
   // getting to disk
   int m_stop_burst_count{ 0 };
 
-  // The estimate of the current timestamp
-  std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ INVALID_TIMESTAMP };
 
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
@@ -145,8 +141,6 @@ private:
 
   // Are we in the RUNNING state?
   std::atomic<bool> m_running_flag{false};
-  // Are we in a configured state, ie after conf and before scrap?
-  std::atomic<bool> m_configured_flag{false};
 };
 } // namespace trigemu
 } // namespace dunedaq

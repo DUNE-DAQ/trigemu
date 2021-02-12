@@ -8,10 +8,12 @@ daq_setup_environment()
 find_package(appfwk REQUIRED)
 find_package(dfmessages REQUIRED)
 
-daq_add_plugin(TriggerDecisionEmulator duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages SCHEMA)
+daq_add_library(TimestampEstimator.cpp LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages)
 
-daq_add_plugin(FakeTimeSyncSource duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages SCHEMA)
-daq_add_plugin(FakeInhibitGenerator duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages TEST SCHEMA)
-daq_add_plugin(FakeRequestReceiver duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages TEST)
+daq_add_plugin(TriggerDecisionEmulator duneDAQModule LINK_LIBRARIES trigemu SCHEMA)
+
+daq_add_plugin(FakeTimeSyncSource duneDAQModule LINK_LIBRARIES trigemu SCHEMA)
+daq_add_plugin(FakeInhibitGenerator duneDAQModule LINK_LIBRARIES trigemu TEST SCHEMA)
+daq_add_plugin(FakeRequestReceiver duneDAQModule LINK_LIBRARIES trigemu TEST)
 
 daq_install()
