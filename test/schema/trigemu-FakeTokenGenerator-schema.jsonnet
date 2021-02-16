@@ -7,8 +7,7 @@ local types = {
   sigmams: s.number("sigma_ms", dtype="i4"),
   
   conf: s.record("ConfParams", [
-    s.field("token_interval_ms", self.intervalms, 1000,
-      doc="Interval between token messages in ms"),
+    s.field("token_interval_ms", self.intervalms, 1000, doc="Interval between token messages in ms"),
       s.field("token_sigma_ms", self.sigmams, 0, doc="Variance of interval between token messages"),
   ], doc="FakeTokenGenerator conf parameters"),
   

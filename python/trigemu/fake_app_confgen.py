@@ -16,7 +16,7 @@ import dunedaq.appfwk.cmd as cmd # AddressedCmd,
 import dunedaq.trigemu.triggerdecisionemulator as tde
 import dunedaq.trigemu.faketimesyncsource as ftss
 import dunedaq.trigemu.fakeinhibitgenerator as fig
-import dunedaq.trigemu.faketokengeneraotr as ftg
+import dunedaq.trigemu.faketokengenerator as ftg
 
 from appfwk.utils import mcmd, mspec
 
