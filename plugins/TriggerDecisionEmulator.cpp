@@ -9,6 +9,7 @@
 
 #include "TriggerDecisionEmulator.hpp"
 
+
 #include "dataformats/ComponentRequest.hpp"
 
 #include "dfmessages/TimeSync.hpp"
@@ -18,6 +19,8 @@
 //#include "ers/ers.h"
 #include "logging/Logging.hpp"
 
+#include "trigemu/Issues.hpp"
+#include "trigemu/TimestampEstimator.hpp"
 #include "trigemu/triggerdecisionemulator/Nljs.hpp"
 #include "trigemu/triggerdecisionemulator/Structs.hpp"
 
@@ -25,6 +28,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <pthread.h>
 #include <random>
 #include <string>
 #include <vector>
@@ -46,6 +50,8 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   register_command("stop", &TriggerDecisionEmulator::do_stop);
   register_command("pause", &TriggerDecisionEmulator::do_pause);
   register_command("resume", &TriggerDecisionEmulator::do_resume);
+  register_command("scrap", &TriggerDecisionEmulator::do_scrap);
+
 }
 
 void
@@ -85,7 +91,7 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   m_repeat_trigger_count = params.repeat_trigger_count;
 
   m_stop_burst_count = params.stop_burst_count;
-  
+
   m_links.clear();
   for (auto const& link : params.links) {
     // For the future: Set APA properly
@@ -102,23 +108,27 @@ void
 TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
 {
   m_run_number = startobj.value<dunedaq::dataformats::run_number_t>("run", 0);
-  m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
 
   m_paused.store(true);
+  m_inhibited.store(false);
   m_running_flag.store(true);
 
-  m_threads.emplace_back(&TriggerDecisionEmulator::estimate_current_timestamp, this);
-  m_threads.emplace_back(&TriggerDecisionEmulator::read_inhibit_queue, this);
-  m_threads.emplace_back(&TriggerDecisionEmulator::send_trigger_decisions, this);
+  m_timestamp_estimator.reset(new TimestampEstimator(m_time_sync_source, m_clock_frequency_hz));
+  
+  m_read_inhibit_queue_thread=std::thread(&TriggerDecisionEmulator::read_inhibit_queue, this);
+  pthread_setname_np(m_read_inhibit_queue_thread.native_handle(), "tde-inhibit-q");
+
+  m_send_trigger_decisions_thread=std::thread(&TriggerDecisionEmulator::send_trigger_decisions, this);
+  pthread_setname_np(m_send_trigger_decisions_thread.native_handle(), "tde-trig-dec");
 }
 
 void
 TriggerDecisionEmulator::do_stop(const nlohmann::json& /*stopobj*/)
 {
   m_running_flag.store(false);
-  for (auto& thread : m_threads)
-    thread.join();
-  m_threads.clear();
+  m_timestamp_estimator.reset(nullptr); // Calls TimestampEstimator dtor
+  m_read_inhibit_queue_thread.join();
+  m_send_trigger_decisions_thread.join();
 }
 
 void
@@ -136,6 +146,11 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
 
   TLOG() << "******* Triggers RESUMED! *********";
   m_paused.store(false);
+}
+
+void
+TriggerDecisionEmulator::do_scrap(const nlohmann::json& /*stopobj*/)
+{
 }
 
 dfmessages::TriggerDecision
@@ -173,12 +188,16 @@ TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
 void
 TriggerDecisionEmulator::send_trigger_decisions()
 {
+
+  // We get here at start of run, so reset the trigger number
+  m_last_trigger_number=0;
+
   // Wait for there to be a valid timestamp estimate before we start
-  while (m_running_flag.load() && m_current_timestamp_estimate.load() == INVALID_TIMESTAMP) {
+  while (m_running_flag.load() && m_timestamp_estimator->get_timestamp_estimate() == INVALID_TIMESTAMP) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
-  dfmessages::timestamp_t ts = m_current_timestamp_estimate.load();
+  dfmessages::timestamp_t ts = m_timestamp_estimator->get_timestamp_estimate();
   TLOG_DEBUG(1) << "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks";
   // Round up to the next multiple of trigger_interval_ticks_
   dfmessages::timestamp_t next_trigger_timestamp =
@@ -189,8 +208,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
 
   while (true) {
     while (m_running_flag.load() &&
-           (m_current_timestamp_estimate.load() < (next_trigger_timestamp + trigger_delay_ticks_) ||
-            m_current_timestamp_estimate.load() == INVALID_TIMESTAMP)) {
+           (m_timestamp_estimator->get_timestamp_estimate() < (next_trigger_timestamp + trigger_delay_ticks_) ||
+            m_timestamp_estimator->get_timestamp_estimate() == INVALID_TIMESTAMP)) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     if (!m_running_flag.load())
@@ -201,10 +220,10 @@ TriggerDecisionEmulator::send_trigger_decisions()
       dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
-        TLOG_DEBUG(0) << "At timestamp " << m_current_timestamp_estimate.load()
-					  << ", pushing a decision with triggernumber " << decision.m_trigger_number
-					  << " timestamp " << decision.m_trigger_timestamp
-					  << " number of links " << decision.m_components.size();
+        TLOG_DEBUG(0) <<
+                  "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
+                                  << decision.m_trigger_number << " timestamp " << decision.m_trigger_timestamp
+                                  << " number of links " << decision.m_components.size();
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
         decision.m_trigger_number++;
         m_last_trigger_number++;
@@ -225,69 +244,37 @@ TriggerDecisionEmulator::send_trigger_decisions()
   if(m_stop_burst_count){
     TLOG_DEBUG(0) << "Sending " << m_stop_burst_count << " triggers at stop";
     dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
-  
+
     for (int i = 0; i < m_stop_burst_count; ++i) {
       m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
       decision.m_trigger_number++;
       m_last_trigger_number++;
     }
   }
-  
+
 }
 
-void
-TriggerDecisionEmulator::estimate_current_timestamp()
-{
-  dfmessages::TimeSync most_recent_timesync{ INVALID_TIMESTAMP };
-  m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
-
-  int i = 0;
-
-  // time_sync_source_ is connected to an MPMC queue with multiple
-  // writers. We read whatever we can off it, and the item with the
-  // largest timestamp "wins"
-  while (m_running_flag.load()) {
-    // First, update the latest timestamp
-    while (m_time_sync_source->can_pop()) {
-      dfmessages::TimeSync t{ INVALID_TIMESTAMP };
-      m_time_sync_source->pop(t);
-      dfmessages::timestamp_t estimate = m_current_timestamp_estimate.load();
-      dfmessages::timestamp_diff_t diff = estimate - t.m_daq_time;
-      TLOG_DEBUG(10) << "Got a TimeSync timestamp = " << t.m_daq_time
-					 << ", system time = " << t.m_system_time
-					 << " when current timestamp estimate was " << estimate
-					 << ". diff=" << diff;
-      if (most_recent_timesync.m_daq_time == INVALID_TIMESTAMP || t.m_daq_time > most_recent_timesync.m_daq_time) {
-        most_recent_timesync = t;
-      }
-    }
-
-    if (most_recent_timesync.m_daq_time != INVALID_TIMESTAMP) {
-      // Update the current timestamp estimate, based on the most recently-read TimeSync
-      using namespace std::chrono;
-      // std::chrono is the worst
-      auto time_now =
-        static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count()); // NOLINT
-      if (time_now < most_recent_timesync.m_system_time) {
-        ers::error(InvalidTimeSync(ERS_HERE));
-      } else {
-        auto delta_time = time_now - most_recent_timesync.m_system_time;
-        const dfmessages::timestamp_t new_timestamp =
-          most_recent_timesync.m_daq_time + delta_time * m_clock_frequency_hz / 1000000;
-        if (i++ % 100 == 0) { // NOLINT
-          TLOG_DEBUG(1) << "Updating timestamp estimate to " << new_timestamp;
-        }
-        m_current_timestamp_estimate.store(new_timestamp);
-      }
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-}
 
 void
 TriggerDecisionEmulator::read_inhibit_queue()
 {
+  // This loop is a hack to deal with the fact that there might be
+  // leftover TriggerInhibit messages from the previous run, because
+  // TriggerDecisionEmulator is stopped before the DF modules that
+  // send the TriggerInhibits. So we pop everything we can at
+  // startup. This will definitely get all of the TriggerInhibits from
+  // the previous run. It *may* also get TriggerInhibits from the
+  // current run, which we drop on the floor. This is not really
+  // ideal, since we don't know whether a given message on the queue
+  // came from the previous (and should be ignored) or from this run
+  // (and should be handled). The problem would be when an inhibit is
+  // sent in this run before this loop gets started. That seems
+  // unlikely, and the whole way we do inhibits is changing for
+  // MiniDAQApp v2 anyway, so I'm leaving it like this
+  while (m_trigger_inhibit_source->can_pop()) {
+    dfmessages::TriggerInhibit ti;
+    m_trigger_inhibit_source->pop(ti);
+  }
   while (m_running_flag.load()) {
     while (m_trigger_inhibit_source->can_pop()) {
       dfmessages::TriggerInhibit ti;
