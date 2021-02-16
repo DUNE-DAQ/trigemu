@@ -9,7 +9,6 @@
 
 #include "TriggerDecisionEmulator.hpp"
 
-
 #include "dataformats/ComponentRequest.hpp"
 
 #include "dfmessages/TimeSync.hpp"
@@ -39,6 +38,7 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   : DAQModule(name)
   , m_time_sync_source(nullptr)
   , m_trigger_inhibit_source(nullptr)
+  , m_token_source(nullptr)
   , m_trigger_decision_sink(nullptr)
   , m_inhibited(false)
   , m_last_trigger_number(0)
@@ -50,7 +50,6 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
   register_command("pause", &TriggerDecisionEmulator::do_pause);
   register_command("resume", &TriggerDecisionEmulator::do_resume);
   register_command("scrap", &TriggerDecisionEmulator::do_scrap);
-
 }
 
 void
@@ -66,6 +65,9 @@ TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
     }
     if (qi.name == "trigger_decision_sink") {
       m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
+    }
+    if (qi.name == "buffer_token_source") {
+      m_token_source.reset(new appfwk::DAQSource<dfmessages::BufferToken>(qi.inst));
     }
   }
 }
@@ -113,11 +115,14 @@ TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
   m_running_flag.store(true);
 
   m_timestamp_estimator.reset(new TimestampEstimator(m_time_sync_source, m_clock_frequency_hz));
-  
-  m_read_inhibit_queue_thread=std::thread(&TriggerDecisionEmulator::read_inhibit_queue, this);
+
+  m_read_inhibit_queue_thread = std::thread(&TriggerDecisionEmulator::read_inhibit_queue, this);
   pthread_setname_np(m_read_inhibit_queue_thread.native_handle(), "tde-inhibit-q");
 
-  m_send_trigger_decisions_thread=std::thread(&TriggerDecisionEmulator::send_trigger_decisions, this);
+  m_read_token_queue_thread = std::thread(&TriggerDecisionEmulator::read_token_queue, this);
+  pthread_setname_np(m_read_token_queue_thread.native_handle(), "tde-token-q");
+
+  m_send_trigger_decisions_thread = std::thread(&TriggerDecisionEmulator::send_trigger_decisions, this);
   pthread_setname_np(m_send_trigger_decisions_thread.native_handle(), "tde-trig-dec");
 }
 
@@ -127,6 +132,7 @@ TriggerDecisionEmulator::do_stop(const nlohmann::json& /*stopobj*/)
   m_running_flag.store(false);
   m_timestamp_estimator.reset(nullptr); // Calls TimestampEstimator dtor
   m_read_inhibit_queue_thread.join();
+  m_read_token_queue_thread.join();
   m_send_trigger_decisions_thread.join();
 }
 
@@ -149,8 +155,7 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
 
 void
 TriggerDecisionEmulator::do_scrap(const nlohmann::json& /*stopobj*/)
-{
-}
+{}
 
 dfmessages::TriggerDecision
 TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
@@ -189,7 +194,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
 {
 
   // We get here at start of run, so reset the trigger number
-  m_last_trigger_number=0;
+  m_last_trigger_number = 0;
 
   // Wait for there to be a valid timestamp estimate before we start
   while (m_running_flag.load() && m_timestamp_estimator->get_timestamp_estimate() == INVALID_TIMESTAMP) {
@@ -214,19 +219,26 @@ TriggerDecisionEmulator::send_trigger_decisions()
     if (!m_running_flag.load())
       break;
 
-    if (!triggers_are_inhibited() && !m_paused.load()) {
+    auto tokens_available = m_token_source != nullptr ? m_tokens.load() : 1;
+    if (!triggers_are_inhibited() && !m_paused.load() && tokens_available > 0) {
 
       dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
         ERS_DEBUG(0,
-                  "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
-                                  << decision.m_trigger_number << " timestamp " << decision.m_trigger_timestamp
-                                  << " number of links " << decision.m_components.size());
+                  "At timestamp " << m_timestamp_estimator->get_timestamp_estimate()
+                                  << ", pushing a decision with triggernumber " << decision.m_trigger_number
+                                  << " timestamp " << decision.m_trigger_timestamp << " number of links "
+                                  << decision.m_components.size());
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
         decision.m_trigger_number++;
         m_last_trigger_number++;
+        m_tokens--;
       }
+    } else if (tokens_available == 0) {
+      ERS_DEBUG(1,
+                "There are no Buffer Tokens available. Not sending a TriggerDecision for timestamp "
+                  << next_trigger_timestamp);
     } else {
       ERS_DEBUG(
         1, "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
@@ -240,7 +252,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
   // in-flight in the system during the stopping transition. This is
   // intended to allow tests that all of the queues are correctly
   // drained elsewhere in the system during the stop transition
-  if(m_stop_burst_count){
+  if (m_stop_burst_count) {
     ERS_DEBUG(0, "Sending " << m_stop_burst_count << " triggers at stop");
     dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
@@ -250,13 +262,14 @@ TriggerDecisionEmulator::send_trigger_decisions()
       m_last_trigger_number++;
     }
   }
-
 }
-
 
 void
 TriggerDecisionEmulator::read_inhibit_queue()
 {
+  if (m_trigger_inhibit_source == nullptr)
+    return;
+
   // This loop is a hack to deal with the fact that there might be
   // leftover TriggerInhibit messages from the previous run, because
   // TriggerDecisionEmulator is stopped before the DF modules that
@@ -281,6 +294,24 @@ TriggerDecisionEmulator::read_inhibit_queue()
       m_inhibited.store(ti.m_busy);
       if (ti.m_busy) {
         ERS_LOG("Dataflow is BUSY.");
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+}
+
+void
+TriggerDecisionEmulator::read_token_queue()
+{
+  if (m_token_source == nullptr)
+    return;
+
+  while (m_running_flag.load()) {
+    while (m_token_source->can_pop()) {
+      dfmessages::BufferToken bt;
+      m_token_source->pop(bt);
+      if (bt.run_number == m_run_number) {
+        m_tokens++;
       }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

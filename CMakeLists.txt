@@ -14,6 +14,7 @@ daq_add_plugin(TriggerDecisionEmulator duneDAQModule LINK_LIBRARIES trigemu SCHE
 
 daq_add_plugin(FakeTimeSyncSource duneDAQModule LINK_LIBRARIES trigemu SCHEMA)
 daq_add_plugin(FakeInhibitGenerator duneDAQModule LINK_LIBRARIES trigemu TEST SCHEMA)
+daq_add_plugin(FakeTokenGenerator duneDAQModule LINK_LIBRARIES trigemu TEST SCHEMA)
 daq_add_plugin(FakeRequestReceiver duneDAQModule LINK_LIBRARIES trigemu TEST)
 
 daq_install()

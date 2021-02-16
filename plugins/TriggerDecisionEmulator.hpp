@@ -20,6 +20,7 @@
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
+#include "dfmessages/BufferToken.hpp"
 #include "dfmessages/Types.hpp"
 
 #include "appfwk/DAQModule.hpp"
@@ -73,11 +74,13 @@ private:
   void send_trigger_decisions();
   // void estimate_current_timestamp();
   void read_inhibit_queue();
+  void read_token_queue();
 
   // ...and the std::threads that hold them
   std::thread m_send_trigger_decisions_thread;
   // std::thread m_estimate_current_timestamp_thread;
   std::thread m_read_inhibit_queue_thread;
+  std::thread m_read_token_queue_thread;
 
   std::unique_ptr<TimestampEstimator> m_timestamp_estimator;
   
@@ -87,6 +90,7 @@ private:
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::BufferToken>> m_token_source;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
   static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP = 0xffffffffffffffff;
@@ -131,6 +135,7 @@ private:
 
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
+  std::atomic<int> m_tokens;
   // paused state, equivalent to inhibited
   std::atomic<bool> m_paused;
 
