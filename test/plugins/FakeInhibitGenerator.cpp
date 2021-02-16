@@ -13,7 +13,8 @@
 
 #include "appfwk/cmd/Nljs.hpp"
 
-#include "ers/ers.h"
+//#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
 #include <cstdint>
 #include <string>
@@ -80,7 +81,7 @@ FakeInhibitGenerator::send_inhibits(const std::chrono::milliseconds inhibit_inte
       break;
 
     busy = !busy;
-    ERS_DEBUG(1, "Sending TriggerInhibit with busy=" << busy);
+    TLOG_DEBUG(1) << "Sending TriggerInhibit with busy=" << busy;
     m_trigger_inhibit_sink->push(dfmessages::TriggerInhibit{ busy });
 
     next_switch_time += inhibit_interval_ms;
