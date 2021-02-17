@@ -49,6 +49,7 @@ FakeTokenGenerator::do_configure(const nlohmann::json& confobj)
   auto params = confobj.get<faketokengenerator::ConfParams>();
   m_token_interval_mean_ms = params.token_interval_ms;
   m_token_interval_sigma_ms = params.token_sigma_ms;
+  m_initial_tokens = params.initial_tokens;
 }
 
 void
@@ -73,13 +74,23 @@ FakeTokenGenerator::send_tokens()
   std::normal_distribution<double> distn(m_token_interval_mean_ms, m_token_interval_sigma_ms);
   std::mt19937 random_engine;
 
+  for (int ti = 0; ti < m_initial_tokens; ++ti) {
+    dfmessages::BufferToken token;
+    token.run_number = m_run_number;
+    TLOG(TLVL_DEBUG) << "Pushing initial token with run number " << m_run_number << " onto queue";
+    m_token_sink->push(std::move(token));
+  }
+
   while (m_running_flag.load()) {
     dfmessages::BufferToken token;
     token.run_number = m_run_number;
+    TLOG(TLVL_DEBUG) << "Pushing token with run number " << m_run_number << " onto queue";
     m_token_sink->push(std::move(token));
     int interval = static_cast<int>(std::round(distn(random_engine)));
     if (interval <= 0)
       interval = 1;
+
+    TLOG(TLVL_DEBUG) << "Sleeping for " << interval << " ms.";
     std::this_thread::sleep_for(std::chrono::milliseconds(interval));
   }
 }

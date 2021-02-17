@@ -45,6 +45,7 @@ private:
   std::thread m_token_thread;
 
   std::unique_ptr<appfwk::DAQSink<dfmessages::BufferToken>> m_token_sink;
+  int m_initial_tokens;
   int m_token_interval_mean_ms;
   int m_token_interval_sigma_ms;
 };

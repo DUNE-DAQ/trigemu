@@ -63,21 +63,20 @@ def generate(NUMBER_OF_DATA_PRODUCERS=2,
     queue_specs = cmd.QueueSpecs(sorted(queue_bare_specs, key=lambda x: x.inst))
 
 
-    mod_specs = [
-        mspec("ftss", "FakeTimeSyncSource", [cmd.QueueInfo(name="time_sync_sink", inst="time_sync_q", dir="output")]),
+    mod_specs = [mspec("ftss", "FakeTimeSyncSource", [cmd.QueueInfo(name="time_sync_sink", inst="time_sync_q", dir="output")]),
         mspec("frr", "FakeRequestReceiver", [cmd.QueueInfo(name="trigger_decision_source", inst="trigger_decision_q", dir="input")])] 
 
     if INHIBITS_ENABLED:
         mod_specs += [mspec("fig", "FakeInhibitGenerator", [cmd.QueueInfo(name="trigger_inhibit_sink", inst="trigger_inhibit_q", dir="output")])]
         if not TOKENS_ENABLED:
             mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
-                        cmd.QueueInfo(name="buffer_token_source", inst="buffer_token_q", dir="input"),
+                        cmd.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
                         cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
     if TOKENS_ENABLED:
         mod_specs += [mspec("ftg", "FakeTokenGenerator", [cmd.QueueInfo(name="token_sink", inst="buffer_token_q", dir="output")]),]
         if not INHIBITS_ENABLED:
             mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
-                        cmd.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
+                        cmd.QueueInfo(name="buffer_token_source", inst="buffer_token_q", dir="input"),
                         cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
     if TOKENS_ENABLED and INHIBITS_ENABLED:
             mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
@@ -112,21 +111,20 @@ def generate(NUMBER_OF_DATA_PRODUCERS=2,
                         clock_frequency_hz=CLOCK_SPEED_HZ / DATA_RATE_SLOWDOWN_FACTOR)),
                 ("ftss", ftss.ConfParams(sync_interval_ticks=64000000)),
                 ("fig", fig.ConfParams(inhibit_interval_ms=5000)),
-                ("ftg", ftg.ConfParams(token_interval_ms=math.floor(1000 / TRIGGER_RATE_HZ), token_sigma_ms=math.floor(1 / TRIGGER_RATE_HZ)))])
+                ("ftg", ftg.ConfParams(token_interval_ms=math.floor(1000 / TRIGGER_RATE_HZ), token_sigma_ms=math.floor(1 / TRIGGER_RATE_HZ), initial_tokens=10))])
     
     jstr = json.dumps(confcmd.pod(), indent=4, sort_keys=True)
     print(jstr)
 
     startpars = cmd.StartParams(run=RUN_NUMBER)
-    startcmd = mcmd("start", [("tde", startpars),
-            ("ftg", startpars),])
+    startcmd = mcmd("start", [("frr", startpars), ("tde", startpars), ("ftss",startpars), ("fig", startpars), ("ftg", startpars),])
 
     jstr = json.dumps(startcmd.pod(), indent=4, sort_keys=True)
     print("=" * 80 + "\nStart\n\n", jstr)
 
     emptypars = cmd.EmptyParams()
 
-    stopcmd = mcmd("stop", [("tde", emptypars),])
+    stopcmd = mcmd("stop", [("tde", emptypars),("frr", emptypars), ("ftss", emptypars), ("fig", emptypars), ("ftg",emptypars)])
 
     jstr = json.dumps(stopcmd.pod(), indent=4, sort_keys=True)
     print("=" * 80 + "\nStop\n\n", jstr)
@@ -179,8 +177,7 @@ if __name__ == '__main__':
                     RUN_NUMBER = run_number, 
                     TRIGGER_RATE_HZ = trigger_rate_hz,
                     INHIBITS_ENABLED = inhibits_enabled,
-                    TOKENS_ENABLED = not tokens_disabled
-            ))
+                    TOKENS_ENABLED = not tokens_disabled))
 
         print(f"'{json_file}' generation completed.")
 

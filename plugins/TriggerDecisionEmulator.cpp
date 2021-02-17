@@ -310,8 +310,10 @@ TriggerDecisionEmulator::read_token_queue()
     while (m_token_source->can_pop()) {
       dfmessages::BufferToken bt;
       m_token_source->pop(bt);
+      TLOG(TLVL_DEBUG) << "Received token with run number " << bt.run_number << ", current run number " << m_run_number;
       if (bt.run_number == m_run_number) {
         m_tokens++;
+        TLOG(TLVL_DEBUG) << "There are now " << m_tokens.load() << " tokens available";
       }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
