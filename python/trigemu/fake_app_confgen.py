@@ -1,7 +1,20 @@
 # Set moo schema search path
 from dunedaq.env import get_moo_model_path
 import moo.io
-moo.io.default_load_path = get_moo_model_path()
+
+# PAR 2021-02-17
+#
+# This is a hideous hack to work around
+# https://github.com/DUNE-DAQ/daq-cmake/issues/32 . Our test schema
+# are not installed into the build directory, and so they're not in
+# moo's path. So we find the *source* test/schema directory relative
+# to the current file, and put that in moo's path. It would have been
+# marginally less hideous to use $DBT_AREA_ROOT, but that variable is
+# not exported, so we can't see it.
+#
+# When the daq-cmake bug above is fixed, this can go away
+import pathlib
+moo.io.default_load_path = [pathlib.Path(__file__).absolute().parents[2] / "test" / "schema"] + get_moo_model_path()
 
 # Load configuration types
 import moo.otypes
