@@ -6,7 +6,7 @@
  */
 
 #include "FakeTimeSyncSource.hpp"
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 
 #include "ers/ers.h"
 
@@ -34,7 +34,7 @@ FakeTimeSyncSource::FakeTimeSyncSource(const std::string& name)
 void
 FakeTimeSyncSource::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "time_sync_sink") {
       m_time_sync_sink.reset(new appfwk::DAQSink<dfmessages::TimeSync>(qi.inst));

@@ -5,7 +5,7 @@
  * received with this code.
  */
 #include "FakeRequestReceiver.hpp"
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 
 #include "ers/ers.h"
@@ -25,7 +25,7 @@ FakeRequestReceiver::FakeRequestReceiver(const std::string& name)
 void
 FakeRequestReceiver::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "trigger_decision_source") {
       m_trigger_decision_source.reset(new appfwk::DAQSource<dfmessages::TriggerDecision>(qi.inst));

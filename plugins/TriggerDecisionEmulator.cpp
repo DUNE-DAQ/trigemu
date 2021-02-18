@@ -17,10 +17,11 @@
 #include "dfmessages/Types.hpp"
 #include "ers/ers.h"
 
+#include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
 #include "trigemu/triggerdecisionemulator/Nljs.hpp"
 #include "trigemu/triggerdecisionemulator/Structs.hpp"
 
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -52,7 +53,7 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
 void
 TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "time_sync_source") {
       m_time_sync_source.reset(new appfwk::DAQSource<dfmessages::TimeSync>(qi.inst));
@@ -64,6 +65,17 @@ TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
       m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
     }
   }
+}
+
+void 
+TriggerDecisionEmulator::get_info(opmonlib::InfoCollector& ci, int /*level*/) {
+  triggerdecisionemulatorinfo::Info tde;
+  
+  tde.triggers = m_trigger_count_tot.load();
+  tde.new_triggers = m_trigger_count.exchange(0);
+
+  ci.add(tde);
+
 }
 
 void
@@ -99,10 +111,6 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   }
 
   m_configured_flag.store(true);
-  m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
-  
-  m_estimate_current_timestamp_thread=std::thread(&TriggerDecisionEmulator::estimate_current_timestamp, this);
-  pthread_setname_np(m_estimate_current_timestamp_thread.native_handle(), "tde-ts-est");
 }
 
 void
@@ -114,6 +122,10 @@ TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
   m_running_flag.store(true);
 
 
+  m_current_timestamp_estimate.store(INVALID_TIMESTAMP);  
+  m_estimate_current_timestamp_thread=std::thread(&TriggerDecisionEmulator::estimate_current_timestamp, this);
+  pthread_setname_np(m_estimate_current_timestamp_thread.native_handle(), "tde-ts-est");
+
   m_read_inhibit_queue_thread=std::thread(&TriggerDecisionEmulator::read_inhibit_queue, this);
   pthread_setname_np(m_read_inhibit_queue_thread.native_handle(), "tde-inhibit-q");
   m_send_trigger_decisions_thread=std::thread(&TriggerDecisionEmulator::send_trigger_decisions, this);
@@ -124,6 +136,8 @@ void
 TriggerDecisionEmulator::do_stop(const nlohmann::json& /*stopobj*/)
 {
   m_running_flag.store(false);
+
+  m_estimate_current_timestamp_thread.join();
   m_read_inhibit_queue_thread.join();
   m_send_trigger_decisions_thread.join();
 }
@@ -149,7 +163,6 @@ void
 TriggerDecisionEmulator::do_scrap(const nlohmann::json& /*stopobj*/)
 {
   m_configured_flag.store(false);
-  m_estimate_current_timestamp_thread.join();
 }
 
 dfmessages::TriggerDecision
@@ -190,6 +203,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
 
   // We get here at start of run, so reset the trigger number
   m_last_trigger_number=0;
+  m_trigger_count.store(0);
+  m_trigger_count_tot.store(0);
 
   // Wait for there to be a valid timestamp estimate before we start
   while (m_running_flag.load() && m_current_timestamp_estimate.load() == INVALID_TIMESTAMP) {
@@ -226,6 +241,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
         decision.m_trigger_number++;
         m_last_trigger_number++;
+        m_trigger_count++;
+        m_trigger_count_tot++;
       }
     } else {
       ERS_DEBUG(
@@ -248,6 +265,9 @@ TriggerDecisionEmulator::send_trigger_decisions()
       m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
       decision.m_trigger_number++;
       m_last_trigger_number++;
+      m_trigger_count++;
+      m_trigger_count_tot++;
+
     }
   }
 
@@ -259,12 +279,17 @@ TriggerDecisionEmulator::estimate_current_timestamp()
   dfmessages::TimeSync most_recent_timesync{ INVALID_TIMESTAMP };
   m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
 
+
+  while (m_time_sync_source->can_pop()) {
+    dfmessages::TimeSync t{ INVALID_TIMESTAMP };
+    m_time_sync_source->pop(t);
+  }  
   int i = 0;
 
   // time_sync_source_ is connected to an MPMC queue with multiple
   // writers. We read whatever we can off it, and the item with the
   // largest timestamp "wins"
-  while (m_configured_flag.load()) {
+  while (m_running_flag.load()) {
     // First, update the latest timestamp
     while (m_time_sync_source->can_pop()) {
       dfmessages::TimeSync t{ INVALID_TIMESTAMP };

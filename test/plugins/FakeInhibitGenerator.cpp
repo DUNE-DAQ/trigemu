@@ -11,7 +11,7 @@
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 
 #include "ers/ers.h"
 
@@ -33,7 +33,7 @@ FakeInhibitGenerator::FakeInhibitGenerator(const std::string& name)
 void
 FakeInhibitGenerator::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "trigger_inhibit_sink") {
       m_trigger_inhibit_sink.reset(new appfwk::DAQSink<dfmessages::TriggerInhibit>(qi.inst));
