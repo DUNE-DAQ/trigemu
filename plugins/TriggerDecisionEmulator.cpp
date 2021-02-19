@@ -66,8 +66,8 @@ TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
     if (qi.name == "trigger_decision_sink") {
       m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
     }
-    if (qi.name == "buffer_token_source") {
-      m_token_source.reset(new appfwk::DAQSource<dfmessages::BufferToken>(qi.inst));
+    if (qi.name == "token_source") {
+      m_token_source.reset(new appfwk::DAQSource<dfmessages::TriggerDecisionToken>(qi.inst));
     }
   }
 }
@@ -308,7 +308,7 @@ TriggerDecisionEmulator::read_token_queue()
 
   while (m_running_flag.load()) {
     while (m_token_source->can_pop()) {
-      dfmessages::BufferToken bt;
+      dfmessages::TriggerDecisionToken bt;
       m_token_source->pop(bt);
       TLOG(TLVL_DEBUG) << "Received token with run number " << bt.run_number << ", current run number " << m_run_number;
       if (bt.run_number == m_run_number) {

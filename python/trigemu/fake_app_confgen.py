@@ -51,7 +51,7 @@ def generate(NUMBER_OF_DATA_PRODUCERS=2,
 
     # Define modules and queues
     queue_bare_specs = [cmd.QueueSpec(inst="time_sync_q", kind='FollyMPMCQueue', capacity=100),
-            cmd.QueueSpec(inst="buffer_token_q", kind="FollySPSCQueue", capacity=20)]
+            cmd.QueueSpec(inst="token_q", kind="FollySPSCQueue", capacity=20)]
 
     if INHIBITS_ENABLED:
         queue_bare_specs += [cmd.QueueSpec(inst="trigger_inhibit_q", kind='FollySPSCQueue', capacity=20)]
@@ -73,15 +73,15 @@ def generate(NUMBER_OF_DATA_PRODUCERS=2,
                         cmd.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
                         cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
     if TOKENS_ENABLED:
-        mod_specs += [mspec("ftg", "FakeTokenGenerator", [cmd.QueueInfo(name="token_sink", inst="buffer_token_q", dir="output")]),]
+        mod_specs += [mspec("ftg", "FakeTokenGenerator", [cmd.QueueInfo(name="token_sink", inst="token_q", dir="output")]),]
         if not INHIBITS_ENABLED:
             mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
-                        cmd.QueueInfo(name="buffer_token_source", inst="buffer_token_q", dir="input"),
+                        cmd.QueueInfo(name="token_source", inst="token_q", dir="input"),
                         cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
     if TOKENS_ENABLED and INHIBITS_ENABLED:
             mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
                         cmd.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
-                        cmd.QueueInfo(name="buffer_token_source", inst="buffer_token_q", dir="input"),
+                        cmd.QueueInfo(name="token_source", inst="token_q", dir="input"),
                         cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
 
 

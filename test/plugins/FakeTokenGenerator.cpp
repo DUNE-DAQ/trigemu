@@ -38,7 +38,7 @@ FakeTokenGenerator::init(const nlohmann::json& iniobj)
   auto ini = iniobj.get<appfwk::cmd::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "token_sink") {
-      m_token_sink.reset(new appfwk::DAQSink<dfmessages::BufferToken>(qi.inst));
+      m_token_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecisionToken>(qi.inst));
     }
   }
 }
@@ -75,14 +75,14 @@ FakeTokenGenerator::send_tokens()
   std::mt19937 random_engine;
 
   for (int ti = 0; ti < m_initial_tokens; ++ti) {
-    dfmessages::BufferToken token;
+    dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
     TLOG(TLVL_DEBUG) << "Pushing initial token with run number " << m_run_number << " onto queue";
     m_token_sink->push(std::move(token));
   }
 
   while (m_running_flag.load()) {
-    dfmessages::BufferToken token;
+    dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
     TLOG(TLVL_DEBUG) << "Pushing token with run number " << m_run_number << " onto queue";
     m_token_sink->push(std::move(token));

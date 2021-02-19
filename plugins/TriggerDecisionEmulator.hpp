@@ -20,7 +20,7 @@
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
-#include "dfmessages/BufferToken.hpp"
+#include "dfmessages/TriggerDecisionToken.hpp"
 #include "dfmessages/Types.hpp"
 
 #include "appfwk/DAQModule.hpp"
@@ -90,7 +90,7 @@ private:
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
-  std::unique_ptr<appfwk::DAQSource<dfmessages::BufferToken>> m_token_source;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecisionToken>> m_token_source;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
   static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP = 0xffffffffffffffff;

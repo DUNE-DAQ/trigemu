@@ -11,7 +11,7 @@
 #include "appfwk/DAQModule.hpp"
 #include "appfwk/DAQSink.hpp"
 
-#include "dfmessages/BufferToken.hpp"
+#include "dfmessages/TriggerDecisionToken.hpp"
 
 #include <memory>
 #include <string>
@@ -44,7 +44,7 @@ private:
   dfmessages::run_number_t m_run_number;
   std::thread m_token_thread;
 
-  std::unique_ptr<appfwk::DAQSink<dfmessages::BufferToken>> m_token_sink;
+  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecisionToken>> m_token_sink;
   int m_initial_tokens;
   int m_token_interval_mean_ms;
   int m_token_interval_sigma_ms;
