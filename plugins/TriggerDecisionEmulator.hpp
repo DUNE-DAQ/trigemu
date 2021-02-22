@@ -19,8 +19,8 @@
 #include "dataformats/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
-#include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/TriggerDecisionToken.hpp"
+#include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 
 #include "appfwk/DAQModule.hpp"
@@ -28,6 +28,7 @@
 #include "appfwk/DAQSource.hpp"
 
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -83,7 +84,7 @@ private:
   std::thread m_read_token_queue_thread;
 
   std::unique_ptr<TimestampEstimator> m_timestamp_estimator;
-  
+
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
 
@@ -132,10 +133,11 @@ private:
   // getting to disk
   int m_stop_burst_count{ 0 };
 
-
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
   std::atomic<int> m_tokens;
+  std::mutex m_open_trigger_decisions_mutex;
+  std::set<dfmessages::trigger_number_t> m_open_trigger_decisions;
   // paused state, equivalent to inhibited
   std::atomic<bool> m_paused;
 
@@ -143,9 +145,8 @@ private:
 
   dfmessages::run_number_t m_run_number;
 
-
   // Are we in the RUNNING state?
-  std::atomic<bool> m_running_flag{false};
+  std::atomic<bool> m_running_flag{ false };
 };
 } // namespace trigemu
 } // namespace dunedaq
