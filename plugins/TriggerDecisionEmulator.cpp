@@ -24,6 +24,7 @@
 #include "trigemu/triggerdecisionemulator/Structs.hpp"
 
 #include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/DAQModuleHelper.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -56,18 +57,10 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
 void
 TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
-  for (const auto& qi : ini.qinfos) {
-    if (qi.name == "time_sync_source") {
-      m_time_sync_source.reset(new appfwk::DAQSource<dfmessages::TimeSync>(qi.inst));
-    }
-    if (qi.name == "trigger_inhibit_source") {
-      m_trigger_inhibit_source.reset(new appfwk::DAQSource<dfmessages::TriggerInhibit>(qi.inst));
-    }
-    if (qi.name == "trigger_decision_sink") {
-      m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
-    }
-  }
+  using appfwk::queue_inst;
+  m_time_sync_source.reset(new appfwk::DAQSource<dfmessages::TimeSync>(queue_inst(iniobj, "time_sync_source")));
+  m_trigger_inhibit_source.reset(new appfwk::DAQSource<dfmessages::TriggerInhibit>(queue_inst(iniobj, "trigger_inhibit_source")));
+  m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(queue_inst(iniobj, "trigger_decision_sink")));
 }
 
 void
