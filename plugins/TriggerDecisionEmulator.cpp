@@ -175,8 +175,8 @@ TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
   for (auto link : this_links) {
     dfmessages::ComponentRequest request;
     request.component = link;
-    request.window_start = timestamp - m_trigger_window_offset;
-    request.window_end = request.window_start + window_ticks_dist(random_engine);
+    request.window_begin = timestamp - m_trigger_window_offset;
+    request.window_end = request.window_begin + window_ticks_dist(random_engine);
 
     decision.components.push_back( request );
   }
