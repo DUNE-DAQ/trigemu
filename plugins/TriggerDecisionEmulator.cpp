@@ -18,14 +18,10 @@
 #include "dfmessages/Types.hpp"
 #include "ers/ers.h"
 
-<<<<<<< HEAD
+#include "trigemu/triggerdecisionemulator/Nljs.hpp"
 #include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
-=======
 #include "trigemu/Issues.hpp"
 #include "trigemu/TimestampEstimator.hpp"
->>>>>>> develop
-#include "trigemu/triggerdecisionemulator/Nljs.hpp"
-#include "trigemu/triggerdecisionemulator/Structs.hpp"
 
 #include "appfwk/app/Nljs.hpp"
 
