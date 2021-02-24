@@ -8,7 +8,7 @@ daq_setup_environment()
 find_package(appfwk REQUIRED)
 find_package(dfmessages REQUIRED)
 
-daq_codegen_schema(*.jsonnet TEMPL Structs.hpp Nljs.hpp )
+daq_codegen(*.jsonnet TEMPLATES Structs.hpp.j2 Nljs.hpp.j2 )
 
 daq_add_plugin(TriggerDecisionEmulator duneDAQModule LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages SCHEMA)
 
