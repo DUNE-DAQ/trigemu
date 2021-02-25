@@ -1,6 +1,10 @@
 #include "trigemu/TimestampEstimator.hpp"
 #include "trigemu/Issues.hpp"
 
+#include "logging/Logging.hpp"
+
+#define TRACE_NAME "TimestampEstimator" // NOLINT
+
 namespace dunedaq::trigemu {
 
 TimestampEstimator::TimestampEstimator(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source,
@@ -49,10 +53,9 @@ void TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<d
       time_sync_source->pop(t);
       dfmessages::timestamp_t estimate = m_current_timestamp_estimate.load();
       dfmessages::timestamp_diff_t diff = estimate - t.m_daq_time;
-      ERS_DEBUG(10,
-                "Got a TimeSync timestamp = " << t.m_daq_time << ", system time = " << t.m_system_time
-                << " when current timestamp estimate was " << estimate
-                << ". diff=" << diff);
+      TLOG_DEBUG(10) << "Got a TimeSync timestamp = " << t.m_daq_time << ", system time = " << t.m_system_time
+                     << " when current timestamp estimate was " << estimate
+                     << ". diff=" << diff;
       if (most_recent_timesync.m_daq_time == INVALID_TIMESTAMP || t.m_daq_time > most_recent_timesync.m_daq_time) {
         most_recent_timesync = t;
       }
@@ -71,7 +74,7 @@ void TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<d
         const dfmessages::timestamp_t new_timestamp =
           most_recent_timesync.m_daq_time + delta_time * m_clock_frequency_hz / 1000000;
         if (i++ % 100 == 0) { // NOLINT
-          ERS_DEBUG(1, "Updating timestamp estimate to " << new_timestamp);
+          TLOG_DEBUG(1) << "Updating timestamp estimate to " << new_timestamp;
         }
         m_current_timestamp_estimate.store(new_timestamp);
       }
