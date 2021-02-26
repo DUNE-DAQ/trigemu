@@ -11,9 +11,9 @@
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 
-#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
 #include <cstdint>
 #include <string>
@@ -33,7 +33,7 @@ FakeInhibitGenerator::FakeInhibitGenerator(const std::string& name)
 void
 FakeInhibitGenerator::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "trigger_inhibit_sink") {
       m_trigger_inhibit_sink.reset(new appfwk::DAQSink<dfmessages::TriggerInhibit>(qi.inst));
@@ -80,7 +80,7 @@ FakeInhibitGenerator::send_inhibits(const std::chrono::milliseconds inhibit_inte
       break;
 
     busy = !busy;
-    ERS_DEBUG(1, "Sending TriggerInhibit with busy=" << busy);
+    TLOG_DEBUG(1) << "Sending TriggerInhibit with busy=" << busy;
     m_trigger_inhibit_sink->push(dfmessages::TriggerInhibit{ busy });
 
     next_switch_time += inhibit_interval_ms;
