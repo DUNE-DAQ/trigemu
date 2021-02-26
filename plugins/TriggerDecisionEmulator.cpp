@@ -176,10 +176,10 @@ TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
                                                                                   m_max_readout_window_ticks);
 
   dfmessages::TriggerDecision decision;
-  decision.m_trigger_number = m_last_trigger_number + 1;
-  decision.m_run_number = m_run_number;
-  decision.m_trigger_timestamp = timestamp;
-  decision.m_trigger_type = m_trigger_type;
+  decision.trigger_number = m_last_trigger_number + 1;
+  decision.run_number = m_run_number;
+  decision.trigger_timestamp = timestamp;
+  decision.trigger_type = m_trigger_type;
 
   int n_links = n_links_dist(random_engine);
 
@@ -188,11 +188,11 @@ TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
 
   for (auto link : this_links) {
     dfmessages::ComponentRequest request;
-    request.m_component = link;
-    request.m_window_offset = m_trigger_window_offset;
-    request.m_window_width = window_ticks_dist(random_engine);
+    request.component = link;
+    request.window_begin = timestamp - m_trigger_window_offset;
+    request.window_end = request.window_begin + window_ticks_dist(random_engine);
 
-    decision.m_components.insert({ link, request });
+    decision.components.push_back( request );
   }
 
   return decision;
@@ -236,10 +236,10 @@ TriggerDecisionEmulator::send_trigger_decisions()
 
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
         TLOG() << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
-               << decision.m_trigger_number << " timestamp " << decision.m_trigger_timestamp
-               << " number of links " << decision.m_components.size();
+               << decision.trigger_number << " timestamp " << decision.trigger_timestamp
+               << " number of links " << decision.components.size();
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
-        decision.m_trigger_number++;
+        decision.trigger_number++;
         m_last_trigger_number++;
         m_trigger_count++;
         m_trigger_count_tot++;
@@ -263,7 +263,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
 
     for (int i = 0; i < m_stop_burst_count; ++i) {
       m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
-      decision.m_trigger_number++;
+      decision.trigger_number++;
       m_last_trigger_number++;
       m_trigger_count++;
       m_trigger_count_tot++;
@@ -297,8 +297,8 @@ TriggerDecisionEmulator::read_inhibit_queue()
     while (m_trigger_inhibit_source->can_pop()) {
       dfmessages::TriggerInhibit ti;
       m_trigger_inhibit_source->pop(ti);
-      m_inhibited.store(ti.m_busy);
-      if (ti.m_busy) {
+      m_inhibited.store(ti.busy);
+      if (ti.busy) {
         TLOG() << "Dataflow is BUSY.";
       }
     }
