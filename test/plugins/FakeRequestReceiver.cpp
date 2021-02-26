@@ -5,10 +5,10 @@
  * received with this code.
  */
 #include "FakeRequestReceiver.hpp"
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 
-#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
 #include <string>
 
@@ -25,7 +25,7 @@ FakeRequestReceiver::FakeRequestReceiver(const std::string& name)
 void
 FakeRequestReceiver::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "trigger_decision_source") {
       m_trigger_decision_source.reset(new appfwk::DAQSource<dfmessages::TriggerDecision>(qi.inst));
@@ -59,7 +59,7 @@ FakeRequestReceiver::run()
       m_trigger_decision_source->pop(decision);
       ++dec_counter;
       if (dec_counter % 10 == 0) {
-        ERS_DEBUG(0, "Received " << dec_counter << " trigger decisions.");
+        TLOG_DEBUG(0) << "Received " << dec_counter << " trigger decisions.";
       }
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));

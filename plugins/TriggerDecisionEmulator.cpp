@@ -15,14 +15,14 @@
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
-#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
+#include "trigemu/triggerdecisionemulator/Nljs.hpp"
+#include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
 #include "trigemu/Issues.hpp"
 #include "trigemu/TimestampEstimator.hpp"
-#include "trigemu/triggerdecisionemulator/Nljs.hpp"
-#include "trigemu/triggerdecisionemulator/Structs.hpp"
 
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -55,7 +55,7 @@ TriggerDecisionEmulator::TriggerDecisionEmulator(const std::string& name)
 void
 TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "time_sync_source") {
       m_time_sync_source.reset(new appfwk::DAQSource<dfmessages::TimeSync>(qi.inst));
@@ -70,6 +70,17 @@ TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
       m_token_source.reset(new appfwk::DAQSource<dfmessages::TriggerDecisionToken>(qi.inst));
     }
   }
+}
+
+void 
+TriggerDecisionEmulator::get_info(opmonlib::InfoCollector& ci, int /*level*/) {
+  triggerdecisionemulatorinfo::Info tde;
+  
+  tde.triggers = m_trigger_count_tot.load();
+  tde.new_triggers = m_trigger_count.exchange(0);
+
+  ci.add(tde);
+
 }
 
 void
@@ -103,6 +114,8 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   if (m_min_readout_window_ticks > m_max_readout_window_ticks || m_min_links_in_request > m_max_links_in_request) {
     throw InvalidConfiguration(ERS_HERE);
   }
+
+  m_configured_flag.store(true);
 }
 
 void
@@ -143,7 +156,7 @@ void
 TriggerDecisionEmulator::do_pause(const nlohmann::json& /*pauseobj*/)
 {
   m_paused.store(true);
-  ERS_LOG("******* Triggers PAUSED! *********");
+  TLOG() << "******* Triggers PAUSED! *********";
 }
 
 void
@@ -152,13 +165,15 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
   auto params = resumeobj.get<triggerdecisionemulator::ResumeParams>();
   m_trigger_interval_ticks.store(params.trigger_interval_ticks);
 
-  ERS_LOG("******* Triggers RESUMED! *********");
+  TLOG() << "******* Triggers RESUMED! *********";
   m_paused.store(false);
 }
 
 void
 TriggerDecisionEmulator::do_scrap(const nlohmann::json& /*stopobj*/)
-{}
+{
+  m_configured_flag.store(false);
+}
 
 dfmessages::TriggerDecision
 TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
@@ -197,7 +212,9 @@ TriggerDecisionEmulator::send_trigger_decisions()
 {
 
   // We get here at start of run, so reset the trigger number
-  m_last_trigger_number = 0;
+  m_last_trigger_number=0;
+  m_trigger_count.store(0);
+  m_trigger_count_tot.store(0);
 
   // Wait for there to be a valid timestamp estimate before we start
   while (m_running_flag.load() && m_timestamp_estimator->get_timestamp_estimate() == INVALID_TIMESTAMP) {
@@ -205,11 +222,11 @@ TriggerDecisionEmulator::send_trigger_decisions()
   }
 
   dfmessages::timestamp_t ts = m_timestamp_estimator->get_timestamp_estimate();
-  ERS_DEBUG(1, "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks");
+  TLOG_DEBUG(1) << "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks";
   // Round up to the next multiple of trigger_interval_ticks_
   dfmessages::timestamp_t next_trigger_timestamp =
     (ts / m_trigger_interval_ticks.load() + 1) * m_trigger_interval_ticks.load() + m_trigger_offset;
-  ERS_DEBUG(1, "Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp);
+  TLOG_DEBUG(1) << "Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp;
 
   assert(next_trigger_timestamp > ts);
 
@@ -228,25 +245,25 @@ TriggerDecisionEmulator::send_trigger_decisions()
       dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
-        ERS_DEBUG(0,
-                  "At timestamp " << m_timestamp_estimator->get_timestamp_estimate()
-                                  << ", pushing a decision with triggernumber " << decision.m_trigger_number
-                                  << " timestamp " << decision.m_trigger_timestamp << " number of links "
-                                  << decision.m_components.size());
+        TLOG() << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
+               << decision.m_trigger_number << " timestamp " << decision.m_trigger_timestamp
+               << " number of links " << decision.m_components.size();
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
         std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
         m_open_trigger_decisions.insert(decision.m_trigger_number);
         decision.m_trigger_number++;
         m_last_trigger_number++;
         m_tokens--;
+        m_trigger_count++;
+        m_trigger_count_tot++;
       }
     } else if (tokens_available == 0) {
       ERS_DEBUG(1,
                 "There are no Tokens available. Not sending a TriggerDecision for timestamp "
                   << next_trigger_timestamp);
     } else {
-      ERS_DEBUG(
-        1, "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
+    TLOG_DEBUG(1) <<
+      "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp;
     }
 
     next_trigger_timestamp += m_trigger_interval_ticks.load();
@@ -257,14 +274,17 @@ TriggerDecisionEmulator::send_trigger_decisions()
   // in-flight in the system during the stopping transition. This is
   // intended to allow tests that all of the queues are correctly
   // drained elsewhere in the system during the stop transition
-  if (m_stop_burst_count) {
-    ERS_DEBUG(0, "Sending " << m_stop_burst_count << " triggers at stop");
+  if(m_stop_burst_count){
+    TLOG_DEBUG(0) << "Sending " << m_stop_burst_count << " triggers at stop";
     dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
     for (int i = 0; i < m_stop_burst_count; ++i) {
       m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
       decision.m_trigger_number++;
       m_last_trigger_number++;
+      m_trigger_count++;
+      m_trigger_count_tot++;
+
     }
   }
 }
@@ -298,7 +318,7 @@ TriggerDecisionEmulator::read_inhibit_queue()
       m_trigger_inhibit_source->pop(ti);
       m_inhibited.store(ti.m_busy);
       if (ti.m_busy) {
-        ERS_LOG("Dataflow is BUSY.");
+        TLOG() << "Dataflow is BUSY.";
       }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

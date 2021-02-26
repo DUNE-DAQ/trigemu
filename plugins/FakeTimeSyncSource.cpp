@@ -6,9 +6,9 @@
  */
 
 #include "FakeTimeSyncSource.hpp"
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 
-#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/Types.hpp"
@@ -34,7 +34,7 @@ FakeTimeSyncSource::FakeTimeSyncSource(const std::string& name)
 void
 FakeTimeSyncSource::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "time_sync_sink") {
       m_time_sync_sink.reset(new appfwk::DAQSink<dfmessages::TimeSync>(qi.inst));
@@ -89,7 +89,7 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
     }
     if (!m_running_flag.load())
       break;
-    ERS_DEBUG(1, "Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us);
+    TLOG_DEBUG(1) << "Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us;
     m_time_sync_sink->push(dfmessages::TimeSync(now_timestamp, now_system_us));
 
     next_timestamp += timesync_interval_ticks;
