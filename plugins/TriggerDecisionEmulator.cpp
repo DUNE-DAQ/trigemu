@@ -258,9 +258,9 @@ TriggerDecisionEmulator::send_trigger_decisions()
         m_trigger_count_tot++;
       }
     } else if (tokens_available == 0) {
-      ERS_DEBUG(1,
+        TLOG_DEBUG(1) <<
                 "There are no Tokens available. Not sending a TriggerDecision for timestamp "
-                  << next_trigger_timestamp);
+                  << next_trigger_timestamp;
     } else {
     TLOG_DEBUG(1) <<
       "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp;

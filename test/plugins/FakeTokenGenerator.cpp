@@ -11,9 +11,9 @@
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 
-#include "appfwk/cmd/Nljs.hpp"
+#include "appfwk/app/Nljs.hpp"
 
-#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
 #include <cstdint>
 #include <random>
@@ -35,7 +35,7 @@ FakeTokenGenerator::FakeTokenGenerator(const std::string& name)
 void
 FakeTokenGenerator::init(const nlohmann::json& iniobj)
 {
-  auto ini = iniobj.get<appfwk::cmd::ModInit>();
+  auto ini = iniobj.get<appfwk::app::ModInit>();
   for (const auto& qi : ini.qinfos) {
     if (qi.name == "token_sink") {
       m_token_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecisionToken>(qi.inst));
