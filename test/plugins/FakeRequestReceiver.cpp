@@ -8,7 +8,7 @@
 #include "appfwk/app/Nljs.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 
-#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
 #include <string>
 
@@ -59,7 +59,7 @@ FakeRequestReceiver::run()
       m_trigger_decision_source->pop(decision);
       ++dec_counter;
       if (dec_counter % 10 == 0) {
-        ERS_DEBUG(0, "Received " << dec_counter << " trigger decisions.");
+        TLOG_DEBUG(0) << "Received " << dec_counter << " trigger decisions.";
       }
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));

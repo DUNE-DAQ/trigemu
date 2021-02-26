@@ -16,7 +16,7 @@
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
-#include "ers/ers.h"
+#include "logging/Logging.hpp"
 
 #include "trigemu/triggerdecisionemulator/Nljs.hpp"
 #include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
@@ -147,7 +147,7 @@ void
 TriggerDecisionEmulator::do_pause(const nlohmann::json& /*pauseobj*/)
 {
   m_paused.store(true);
-  ERS_LOG("******* Triggers PAUSED! *********");
+  TLOG() << "******* Triggers PAUSED! *********";
 }
 
 void
@@ -156,7 +156,7 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
   auto params = resumeobj.get<triggerdecisionemulator::ResumeParams>();
   m_trigger_interval_ticks.store(params.trigger_interval_ticks);
 
-  ERS_LOG("******* Triggers RESUMED! *********");
+  TLOG() << "******* Triggers RESUMED! *********";
   m_paused.store(false);
 }
 
@@ -213,11 +213,11 @@ TriggerDecisionEmulator::send_trigger_decisions()
   }
 
   dfmessages::timestamp_t ts = m_timestamp_estimator->get_timestamp_estimate();
-  ERS_DEBUG(1, "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks");
+  TLOG_DEBUG(1) << "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks";
   // Round up to the next multiple of trigger_interval_ticks_
   dfmessages::timestamp_t next_trigger_timestamp =
     (ts / m_trigger_interval_ticks.load() + 1) * m_trigger_interval_ticks.load() + m_trigger_offset;
-  ERS_DEBUG(1, "Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp);
+  TLOG_DEBUG(1) << "Initial timestamp estimate is " << ts << ", next_trigger_timestamp is " << next_trigger_timestamp;
 
   assert(next_trigger_timestamp > ts);
 
@@ -235,10 +235,9 @@ TriggerDecisionEmulator::send_trigger_decisions()
       dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
-        ERS_DEBUG(0,
-                  "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
-                                  << decision.m_trigger_number << " timestamp " << decision.m_trigger_timestamp
-                                  << " number of links " << decision.m_components.size());
+        TLOG() << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
+               << decision.m_trigger_number << " timestamp " << decision.m_trigger_timestamp
+               << " number of links " << decision.m_components.size();
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
         decision.m_trigger_number++;
         m_last_trigger_number++;
@@ -246,8 +245,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
         m_trigger_count_tot++;
       }
     } else {
-      ERS_DEBUG(
-        1, "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp);
+    TLOG_DEBUG(1) <<
+      "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp;
     }
 
     next_trigger_timestamp += m_trigger_interval_ticks.load();
@@ -259,7 +258,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
   // intended to allow tests that all of the queues are correctly
   // drained elsewhere in the system during the stop transition
   if(m_stop_burst_count){
-    ERS_DEBUG(0, "Sending " << m_stop_burst_count << " triggers at stop");
+    TLOG_DEBUG(0) << "Sending " << m_stop_burst_count << " triggers at stop";
     dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
     for (int i = 0; i < m_stop_burst_count; ++i) {
@@ -300,7 +299,7 @@ TriggerDecisionEmulator::read_inhibit_queue()
       m_trigger_inhibit_source->pop(ti);
       m_inhibited.store(ti.m_busy);
       if (ti.m_busy) {
-        ERS_LOG("Dataflow is BUSY.");
+        TLOG() << "Dataflow is BUSY.";
       }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
