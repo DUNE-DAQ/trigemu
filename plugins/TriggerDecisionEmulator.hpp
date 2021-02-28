@@ -19,6 +19,7 @@
 #include "dataformats/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
+#include "dfmessages/TriggerDecisionToken.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 
@@ -27,6 +28,7 @@
 #include "appfwk/DAQSource.hpp"
 
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -74,20 +76,23 @@ private:
   void send_trigger_decisions();
   // void estimate_current_timestamp();
   void read_inhibit_queue();
+  void read_token_queue();
 
   // ...and the std::threads that hold them
   std::thread m_send_trigger_decisions_thread;
   // std::thread m_estimate_current_timestamp_thread;
   std::thread m_read_inhibit_queue_thread;
+  std::thread m_read_token_queue_thread;
 
   std::unique_ptr<TimestampEstimator> m_timestamp_estimator;
-  
+
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
 
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecisionToken>> m_token_source;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
   static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP = 0xffffffffffffffff;
@@ -129,16 +134,17 @@ private:
   // getting to disk
   int m_stop_burst_count{ 0 };
 
-
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
+  std::atomic<int> m_tokens;
+  std::mutex m_open_trigger_decisions_mutex;
+  std::set<dfmessages::trigger_number_t> m_open_trigger_decisions;
   // paused state, equivalent to inhibited
   std::atomic<bool> m_paused;
 
   dfmessages::trigger_number_t m_last_trigger_number;
 
   dfmessages::run_number_t m_run_number;
-
 
   // Are we in the RUNNING state?
   std::atomic<bool> m_running_flag{false};
