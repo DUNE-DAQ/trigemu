@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.12)
 project(trigemu VERSION 1.0.0)
 
-find_package(daq-cmake REQUIRED )
+find_package(daq-cmake REQUIRED)
 
 daq_setup_environment()
 
 find_package(appfwk REQUIRED)
+find_package(logging REQUIRED)
 find_package(dfmessages REQUIRED)
 
 daq_codegen(*.jsonnet TEMPLATES Structs.hpp.j2 Nljs.hpp.j2 )
