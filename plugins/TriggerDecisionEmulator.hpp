@@ -19,6 +19,7 @@
 #include "dataformats/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
+#include "dfmessages/TriggerDecisionToken.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 
@@ -27,6 +28,7 @@
 #include "appfwk/DAQSource.hpp"
 
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -56,6 +58,7 @@ public:
     delete; ///< TriggerDecisionEmulator is not move-assignable
 
   void init(const nlohmann::json& iniobj) override;
+  void get_info(opmonlib::InfoCollector& ci, int level) override;
 
 private:
   // Commands
@@ -73,20 +76,23 @@ private:
   void send_trigger_decisions();
   // void estimate_current_timestamp();
   void read_inhibit_queue();
+  void read_token_queue();
 
   // ...and the std::threads that hold them
   std::thread m_send_trigger_decisions_thread;
   // std::thread m_estimate_current_timestamp_thread;
   std::thread m_read_inhibit_queue_thread;
+  std::thread m_read_token_queue_thread;
 
   std::unique_ptr<TimestampEstimator> m_timestamp_estimator;
-  
+
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
 
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecisionToken>> m_token_source;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
   static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP = 0xffffffffffffffff;
@@ -106,7 +112,7 @@ private:
   int trigger_delay_ticks_{ 0 };
 
   // The offset and width of the windows to be requested in the trigger
-  dfmessages::timestamp_diff_t m_trigger_window_offset{ 0 };
+  dataformats::timestamp_diff_t m_trigger_window_offset{ 0 };
   dfmessages::timestamp_t m_min_readout_window_ticks{ 0 };
   dfmessages::timestamp_t m_max_readout_window_ticks{ 0 };
 
@@ -128,9 +134,11 @@ private:
   // getting to disk
   int m_stop_burst_count{ 0 };
 
-
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
+  std::atomic<int> m_tokens;
+  std::mutex m_open_trigger_decisions_mutex;
+  std::set<dfmessages::trigger_number_t> m_open_trigger_decisions;
   // paused state, equivalent to inhibited
   std::atomic<bool> m_paused;
 
@@ -138,9 +146,14 @@ private:
 
   dfmessages::run_number_t m_run_number;
 
-
   // Are we in the RUNNING state?
   std::atomic<bool> m_running_flag{false};
+  // Are we in a configured state, ie after conf and before scrap?
+  std::atomic<bool> m_configured_flag{false};
+
+  std::atomic<uint64_t> m_trigger_count{0};
+  std::atomic<uint64_t> m_trigger_count_tot{0};
+
 };
 } // namespace trigemu
 } // namespace dunedaq

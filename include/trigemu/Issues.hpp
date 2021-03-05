@@ -1,4 +1,4 @@
-#include "ers/ers.h"
+#include "ers/Issue.hpp"
 
 namespace dunedaq {
 ERS_DECLARE_ISSUE(trigemu, InvalidTimeSync, "An invalid TimeSync message was received", ERS_EMPTY)

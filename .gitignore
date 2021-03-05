@@ -2,3 +2,4 @@ src/trigemu/triggerdecisionemulator/
 src/trigemu/faketimesyncsource/
 test/src/trigemu/faketimesyncsource/
 test/src/trigemu/fakeinhibitgenerator/
+test/src/trigemu/faketokengenerator/

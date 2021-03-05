@@ -1,6 +1,10 @@
 #include "trigemu/TimestampEstimator.hpp"
 #include "trigemu/Issues.hpp"
 
+#include "logging/Logging.hpp"
+
+#define TRACE_NAME "TimestampEstimator" // NOLINT
+
 namespace dunedaq::trigemu {
 
 TimestampEstimator::TimestampEstimator(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source,
@@ -48,30 +52,29 @@ void TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<d
       dfmessages::TimeSync t{ INVALID_TIMESTAMP };
       time_sync_source->pop(t);
       dfmessages::timestamp_t estimate = m_current_timestamp_estimate.load();
-      dfmessages::timestamp_diff_t diff = estimate - t.m_daq_time;
-      ERS_DEBUG(10,
-                "Got a TimeSync timestamp = " << t.m_daq_time << ", system time = " << t.m_system_time
-                << " when current timestamp estimate was " << estimate
-                << ". diff=" << diff);
-      if (most_recent_timesync.m_daq_time == INVALID_TIMESTAMP || t.m_daq_time > most_recent_timesync.m_daq_time) {
+      dfmessages::timestamp_diff_t diff = estimate - t.daq_time;
+      TLOG_DEBUG(10) << "Got a TimeSync timestamp = " << t.daq_time << ", system time = " << t.system_time
+                     << " when current timestamp estimate was " << estimate
+                     << ". diff=" << diff;
+      if (most_recent_timesync.daq_time == INVALID_TIMESTAMP || t.daq_time > most_recent_timesync.daq_time) {
         most_recent_timesync = t;
       }
     }
 
-    if (most_recent_timesync.m_daq_time != INVALID_TIMESTAMP) {
+    if (most_recent_timesync.daq_time != INVALID_TIMESTAMP) {
       // Update the current timestamp estimate, based on the most recently-read TimeSync
       using namespace std::chrono;
       // std::chrono is the worst
       auto time_now =
         static_cast<uint64_t>(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count()); // NOLINT
-      if (time_now < most_recent_timesync.m_system_time) {
+      if (time_now < most_recent_timesync.system_time) {
         // ers::error(InvalidTimeSync(ERS_HERE));
       } else {
-        auto delta_time = time_now - most_recent_timesync.m_system_time;
+        auto delta_time = time_now - most_recent_timesync.system_time;
         const dfmessages::timestamp_t new_timestamp =
-          most_recent_timesync.m_daq_time + delta_time * m_clock_frequency_hz / 1000000;
+          most_recent_timesync.daq_time + delta_time * m_clock_frequency_hz / 1000000;
         if (i++ % 100 == 0) { // NOLINT
-          ERS_DEBUG(1, "Updating timestamp estimate to " << new_timestamp);
+          TLOG_DEBUG(1) << "Updating timestamp estimate to " << new_timestamp;
         }
         m_current_timestamp_estimate.store(new_timestamp);
       }
