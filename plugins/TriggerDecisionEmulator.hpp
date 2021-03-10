@@ -147,13 +147,12 @@ private:
   dfmessages::run_number_t m_run_number;
 
   // Are we in the RUNNING state?
-  std::atomic<bool> m_running_flag{false};
+  std::atomic<bool> m_running_flag{ false };
   // Are we in a configured state, ie after conf and before scrap?
-  std::atomic<bool> m_configured_flag{false};
+  std::atomic<bool> m_configured_flag{ false };
 
-  std::atomic<uint64_t> m_trigger_count{0};
-  std::atomic<uint64_t> m_trigger_count_tot{0};
-
+  std::atomic<uint64_t> m_trigger_count{ 0 };
+  std::atomic<uint64_t> m_trigger_count_tot{ 0 };
 };
 } // namespace trigemu
 } // namespace dunedaq
