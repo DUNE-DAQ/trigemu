@@ -245,7 +245,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
       dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
-        TLOG() << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
+        TLOG_DEBUG(1) << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
                << decision.trigger_number << " timestamp " << decision.trigger_timestamp
                << " number of links " << decision.components.size();
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
@@ -336,17 +336,17 @@ TriggerDecisionEmulator::read_token_queue()
     while (m_token_source->can_pop()) {
       dfmessages::TriggerDecisionToken tdt;
       m_token_source->pop(tdt);
-      TLOG(TLVL_DEBUG) << "Received token with run number " << tdt.run_number << ", current run number "
+      TLOG_DEBUG(1) << "Received token with run number " << tdt.run_number << ", current run number "
                        << m_run_number;
       if (tdt.run_number == m_run_number) {
         m_tokens++;
-        TLOG(TLVL_DEBUG) << "There are now " << m_tokens.load() << " tokens available";
+        TLOG_DEBUG(1) << "There are now " << m_tokens.load() << " tokens available";
 
         if (tdt.trigger_number != dfmessages::TypeDefaults::s_invalid_trigger_number) {
           if (m_open_trigger_decisions.count(tdt.trigger_number)) {
             std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
             m_open_trigger_decisions.erase(tdt.trigger_number);
-            TLOG(TLVL_DEBUG) << "Token indicates that trigger decision " << tdt.trigger_number
+            TLOG_DEBUG(1) << "Token indicates that trigger decision " << tdt.trigger_number
                              << " has been completed. There are now " << m_open_trigger_decisions.size() << " triggers in flight";
           } else {
             // ERS warning: received token for trigger number I don't recognize
@@ -371,7 +371,7 @@ TriggerDecisionEmulator::read_token_queue()
         }
         o << "]";
       }
-      TLOG(TLVL_INFO) << o.str();
+      TLOG_DEBUG(0) << o.str();
       open_trigger_report_time = now;
     }
     }
