@@ -15,6 +15,8 @@ local info = {
        s.field("class_name", self.cl, "triggerdecisionemulatorinfo", doc="Info class name"),
        s.field("triggers", self.uint8, 0, doc="Integral trigger counter"), 
        s.field("new_triggers", self.uint8, 0, doc="Incremental trigger counter"), 
+       s.field("inhibited", self.uint8, 0, doc="Number of triggers skipped"),
+       s.field("new_inhibited", self.uint8, 0, doc="Incremental skipped counter"),
    ], doc="Trigger information information")
 };
 
