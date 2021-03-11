@@ -148,10 +148,12 @@ void
 TriggerDecisionEmulator::do_stop(const nlohmann::json& /*stopobj*/)
 {
   m_running_flag.store(false);
-  m_timestamp_estimator.reset(nullptr); // Calls TimestampEstimator dtor
+
   m_read_inhibit_queue_thread.join();
   m_read_token_queue_thread.join();
   m_send_trigger_decisions_thread.join();
+
+  m_timestamp_estimator.reset(nullptr); // Calls TimestampEstimator dtor
 }
 
 void
@@ -225,7 +227,13 @@ TriggerDecisionEmulator::send_trigger_decisions()
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
+  if (!m_running_flag.load()) {
+    // We get here if we were stopped before the TimestampEstimator received any TimeSyncs
+    return;
+  }
+
   dfmessages::timestamp_t ts = m_timestamp_estimator->get_timestamp_estimate();
+
   TLOG_DEBUG(1) << "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks";
   // Round up to the next multiple of trigger_interval_ticks_
   dfmessages::timestamp_t next_trigger_timestamp =
