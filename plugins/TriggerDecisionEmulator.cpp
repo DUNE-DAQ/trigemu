@@ -17,10 +17,10 @@
 #include "dfmessages/Types.hpp"
 #include "logging/Logging.hpp"
 
-#include "trigemu/triggerdecisionemulator/Nljs.hpp"
-#include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
 #include "trigemu/Issues.hpp"
 #include "trigemu/TimestampEstimator.hpp"
+#include "trigemu/triggerdecisionemulator/Nljs.hpp"
+#include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
 
 #include "appfwk/app/Nljs.hpp"
 
@@ -72,15 +72,15 @@ TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
   }
 }
 
-void 
-TriggerDecisionEmulator::get_info(opmonlib::InfoCollector& ci, int /*level*/) {
+void
+TriggerDecisionEmulator::get_info(opmonlib::InfoCollector& ci, int /*level*/)
+{
   triggerdecisionemulatorinfo::Info tde;
-  
+
   tde.triggers = m_trigger_count_tot.load();
   tde.new_triggers = m_trigger_count.exchange(0);
 
   ci.add(tde);
-
 }
 
 void
@@ -201,7 +201,7 @@ TriggerDecisionEmulator::create_decision(dfmessages::timestamp_t timestamp)
     request.window_begin = timestamp - m_trigger_window_offset;
     request.window_end = request.window_begin + window_ticks_dist(random_engine);
 
-    decision.components.push_back( request );
+    decision.components.push_back(request);
   }
 
   return decision;
@@ -212,7 +212,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
 {
 
   // We get here at start of run, so reset the trigger number
-  m_last_trigger_number=0;
+  m_last_trigger_number = 0;
   m_trigger_count.store(0);
   m_trigger_count_tot.store(0);
 
@@ -245,9 +245,9 @@ TriggerDecisionEmulator::send_trigger_decisions()
       dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
       for (int i = 0; i < m_repeat_trigger_count; ++i) {
-        TLOG() << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate() << ", pushing a decision with triggernumber "
-               << decision.trigger_number << " timestamp " << decision.trigger_timestamp
-               << " number of links " << decision.components.size();
+        TLOG_DEBUG(1) << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate()
+                      << ", pushing a decision with triggernumber " << decision.trigger_number << " timestamp "
+                      << decision.trigger_timestamp << " number of links " << decision.components.size();
         m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
         std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
         m_open_trigger_decisions.insert(decision.trigger_number);
@@ -258,12 +258,11 @@ TriggerDecisionEmulator::send_trigger_decisions()
         m_trigger_count_tot++;
       }
     } else if (tokens_available == 0) {
-        TLOG_DEBUG(1) <<
-                "There are no Tokens available. Not sending a TriggerDecision for timestamp "
-                  << next_trigger_timestamp;
+      TLOG_DEBUG(1) << "There are no Tokens available. Not sending a TriggerDecision for timestamp "
+                    << next_trigger_timestamp;
     } else {
-    TLOG_DEBUG(1) <<
-      "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp " << next_trigger_timestamp;
+      TLOG_DEBUG(1) << "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp "
+                    << next_trigger_timestamp;
     }
 
     next_trigger_timestamp += m_trigger_interval_ticks.load();
@@ -274,7 +273,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
   // in-flight in the system during the stopping transition. This is
   // intended to allow tests that all of the queues are correctly
   // drained elsewhere in the system during the stop transition
-  if(m_stop_burst_count){
+  if (m_stop_burst_count) {
     TLOG_DEBUG(0) << "Sending " << m_stop_burst_count << " triggers at stop";
     dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
@@ -284,7 +283,6 @@ TriggerDecisionEmulator::send_trigger_decisions()
       m_last_trigger_number++;
       m_trigger_count++;
       m_trigger_count_tot++;
-
     }
   }
 }
@@ -336,44 +334,45 @@ TriggerDecisionEmulator::read_token_queue()
     while (m_token_source->can_pop()) {
       dfmessages::TriggerDecisionToken tdt;
       m_token_source->pop(tdt);
-      TLOG(TLVL_DEBUG) << "Received token with run number " << tdt.run_number << ", current run number "
-                       << m_run_number;
+      TLOG_DEBUG(1) << "Received token with run number " << tdt.run_number << ", current run number " << m_run_number;
       if (tdt.run_number == m_run_number) {
         m_tokens++;
-        TLOG(TLVL_DEBUG) << "There are now " << m_tokens.load() << " tokens available";
+        TLOG_DEBUG(1) << "There are now " << m_tokens.load() << " tokens available";
 
         if (tdt.trigger_number != dfmessages::TypeDefaults::s_invalid_trigger_number) {
           if (m_open_trigger_decisions.count(tdt.trigger_number)) {
             std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
             m_open_trigger_decisions.erase(tdt.trigger_number);
-            TLOG(TLVL_DEBUG) << "Token indicates that trigger decision " << tdt.trigger_number
-                             << " has been completed. There are now " << m_open_trigger_decisions.size() << " triggers in flight";
+            TLOG_DEBUG(1) << "Token indicates that trigger decision " << tdt.trigger_number
+                          << " has been completed. There are now " << m_open_trigger_decisions.size()
+                          << " triggers in flight";
           } else {
             // ERS warning: received token for trigger number I don't recognize
           }
         }
       }
     }
-    if (!m_paused &&!m_open_trigger_decisions.empty()) {
-    
-    auto now = std::chrono::steady_clock::now();
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - open_trigger_report_time) > std::chrono::milliseconds(3000)) {
-      std::ostringstream o;
-      o << "Open Trigger Decisions: [";
-      { // Scope for lock_guard
-        bool first = true;
-        std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
-        for (auto& td : m_open_trigger_decisions) {
-          if (!first)
-            o << ", ";
-          o << td;
-          first = false;
+    if (!m_paused && !m_open_trigger_decisions.empty()) {
+
+      auto now = std::chrono::steady_clock::now();
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(now - open_trigger_report_time) >
+          std::chrono::milliseconds(3000)) {
+        std::ostringstream o;
+        o << "Open Trigger Decisions: [";
+        { // Scope for lock_guard
+          bool first = true;
+          std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
+          for (auto& td : m_open_trigger_decisions) {
+            if (!first)
+              o << ", ";
+            o << td;
+            first = false;
+          }
+          o << "]";
         }
-        o << "]";
+        TLOG_DEBUG(0) << o.str();
+        open_trigger_report_time = now;
       }
-      TLOG(TLVL_INFO) << o.str();
-      open_trigger_report_time = now;
-    }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }

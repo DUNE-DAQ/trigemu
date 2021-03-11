@@ -24,11 +24,10 @@ class FakeTokenGenerator : public dunedaq::appfwk::DAQModule
 public:
   explicit FakeTokenGenerator(const std::string& name);
 
-  FakeTokenGenerator(const FakeTokenGenerator&) = delete; ///< FakeTokenGenerator is not copy-constructible
-  FakeTokenGenerator& operator=(const FakeTokenGenerator&) =
-    delete;                                                         ///< FakeTokenGenerator is not copy-assignable
-  FakeTokenGenerator(FakeTokenGenerator&&) = delete;            ///< FakeTokenGenerator is not move-constructible
-  FakeTokenGenerator& operator=(FakeTokenGenerator&&) = delete; ///< FakeTokenGenerator is not move-assignable
+  FakeTokenGenerator(const FakeTokenGenerator&) = delete;            ///< FakeTokenGenerator is not copy-constructible
+  FakeTokenGenerator& operator=(const FakeTokenGenerator&) = delete; ///< FakeTokenGenerator is not copy-assignable
+  FakeTokenGenerator(FakeTokenGenerator&&) = delete;                 ///< FakeTokenGenerator is not move-constructible
+  FakeTokenGenerator& operator=(FakeTokenGenerator&&) = delete;      ///< FakeTokenGenerator is not move-assignable
 
   void init(const nlohmann::json& iniobj) override;
 

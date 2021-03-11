@@ -8,7 +8,7 @@
 namespace dunedaq::trigemu {
 
 TimestampEstimator::TimestampEstimator(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source,
-                                         uint64_t clock_frequency_hz)
+                                       uint64_t clock_frequency_hz)
   : m_running_flag(true)
   , m_clock_frequency_hz(clock_frequency_hz)
   , m_estimator_thread(&TimestampEstimator::estimator_thread_fn, this, std::ref(time_sync_source))
@@ -21,8 +21,9 @@ TimestampEstimator::~TimestampEstimator()
   m_running_flag.store(false);
   m_estimator_thread.join();
 }
-  
-void TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source)
+
+void
+TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source)
 {
   // This loop is a hack to deal with the fact that there might be
   // leftover TimeSync messages from the previous run, because
@@ -37,7 +38,7 @@ void TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<d
     dfmessages::TimeSync t{ INVALID_TIMESTAMP };
     time_sync_source->pop(t);
   }
-  
+
   dfmessages::TimeSync most_recent_timesync{ INVALID_TIMESTAMP };
   m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
 
@@ -54,8 +55,7 @@ void TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<d
       dfmessages::timestamp_t estimate = m_current_timestamp_estimate.load();
       dfmessages::timestamp_diff_t diff = estimate - t.daq_time;
       TLOG_DEBUG(10) << "Got a TimeSync timestamp = " << t.daq_time << ", system time = " << t.system_time
-                     << " when current timestamp estimate was " << estimate
-                     << ". diff=" << diff;
+                     << " when current timestamp estimate was " << estimate << ". diff=" << diff;
       if (most_recent_timesync.daq_time == INVALID_TIMESTAMP || t.daq_time > most_recent_timesync.daq_time) {
         most_recent_timesync = t;
       }

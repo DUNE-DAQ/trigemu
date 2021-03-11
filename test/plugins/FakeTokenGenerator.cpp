@@ -77,20 +77,20 @@ FakeTokenGenerator::send_tokens()
   for (int ti = 0; ti < m_initial_tokens; ++ti) {
     dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
-    TLOG(TLVL_DEBUG) << "Pushing initial token with run number " << m_run_number << " onto queue";
+    TLOG_DEBUG(0) << "Pushing initial token with run number " << m_run_number << " onto queue";
     m_token_sink->push(std::move(token));
   }
 
   while (m_running_flag.load()) {
     dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
-    TLOG(TLVL_DEBUG) << "Pushing token with run number " << m_run_number << " onto queue";
+    TLOG_DEBUG(0) << "Pushing token with run number " << m_run_number << " onto queue";
     m_token_sink->push(std::move(token));
     int interval = static_cast<int>(std::round(distn(random_engine)));
     if (interval <= 0)
       interval = 1;
 
-    TLOG(TLVL_DEBUG) << "Sleeping for " << interval << " ms.";
+    TLOG_DEBUG(0) << "Sleeping for " << interval << " ms.";
     std::this_thread::sleep_for(std::chrono::milliseconds(interval));
   }
 }

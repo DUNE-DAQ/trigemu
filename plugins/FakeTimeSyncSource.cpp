@@ -24,7 +24,7 @@ FakeTimeSyncSource::FakeTimeSyncSource(const std::string& name)
   : DAQModule(name)
   , m_running_flag{ false }
   , m_sync_interval_ticks{ 0 }
-  , m_clock_frequency_hz{ 50*1000*1000 }
+  , m_clock_frequency_hz{ 50 * 1000 * 1000 }
 {
   register_command("conf", &FakeTimeSyncSource::do_configure);
   register_command("start", &FakeTimeSyncSource::do_start);
@@ -75,7 +75,7 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
   // std::chrono is the worst
   auto time_now = system_clock::now().time_since_epoch();
   auto now_system_us = duration_cast<microseconds>(time_now).count();
-  uint64_t now_timestamp = now_system_us/1000000*m_clock_frequency_hz;
+  uint64_t now_timestamp = now_system_us / 1000000 * m_clock_frequency_hz;
 
   dfmessages::timestamp_t next_timestamp = (now_timestamp / timesync_interval_ticks + 1) * timesync_interval_ticks;
 
@@ -85,7 +85,7 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
 
       time_now = system_clock::now().time_since_epoch();
       now_system_us = duration_cast<microseconds>(time_now).count();
-      now_timestamp = now_system_us/1000000*m_clock_frequency_hz;
+      now_timestamp = now_system_us / 1000000 * m_clock_frequency_hz;
     }
     if (!m_running_flag.load())
       break;
