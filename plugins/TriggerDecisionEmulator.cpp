@@ -277,8 +277,6 @@ TriggerDecisionEmulator::send_trigger_decisions()
     } else {
       TLOG_DEBUG(1) << "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp "
                     << next_trigger_timestamp;
-      m_inhibited_trigger_count++;
-      m_inhibited_trigger_count_tot++;
     }
 
     next_trigger_timestamp += m_trigger_interval_ticks.load();
