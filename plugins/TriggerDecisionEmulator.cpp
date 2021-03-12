@@ -79,6 +79,8 @@ TriggerDecisionEmulator::get_info(opmonlib::InfoCollector& ci, int /*level*/)
 
   tde.triggers = m_trigger_count_tot.load();
   tde.new_triggers = m_trigger_count.exchange(0);
+  tde.inhibited = m_inhibited_trigger_count_tot.load();
+  tde.new_inhibited = m_inhibited_trigger_count.exchange(0);
 
   ci.add(tde);
 }
@@ -217,6 +219,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
   m_last_trigger_number = 0;
   m_trigger_count.store(0);
   m_trigger_count_tot.store(0);
+  m_inhibited_trigger_count.store(0);
+  m_inhibited_trigger_count_tot.store(0);
 
   // Wait for there to be a valid timestamp estimate before we start
   while (m_running_flag.load() && m_timestamp_estimator->get_timestamp_estimate() == INVALID_TIMESTAMP) {
@@ -268,6 +272,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
     } else if (tokens_available == 0) {
       TLOG_DEBUG(1) << "There are no Tokens available. Not sending a TriggerDecision for timestamp "
                     << next_trigger_timestamp;
+      m_inhibited_trigger_count++;
+      m_inhibited_trigger_count_tot++;
     } else {
       TLOG_DEBUG(1) << "Triggers are inhibited/paused. Not sending a TriggerDecision for timestamp "
                     << next_trigger_timestamp;

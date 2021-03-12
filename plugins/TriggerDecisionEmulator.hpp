@@ -153,6 +153,8 @@ private:
 
   std::atomic<uint64_t> m_trigger_count{ 0 };
   std::atomic<uint64_t> m_trigger_count_tot{ 0 };
+  std::atomic<uint64_t> m_inhibited_trigger_count{ 0 };
+  std::atomic<uint64_t> m_inhibited_trigger_count_tot{ 0 };
 };
 } // namespace trigemu
 } // namespace dunedaq
