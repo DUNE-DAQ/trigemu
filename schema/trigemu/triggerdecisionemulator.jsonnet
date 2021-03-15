@@ -9,6 +9,7 @@ local types = {
   ticks: s.number("ticks", dtype="i8"),
   freq: s.number("frequency", dtype="u8"),
   repeat_count: s.number("repeat_count", dtype="i4"),
+  token_count: s.number("token_count", dtype="i4"),
   
   conf : s.record("ConfParams", [
     s.field("links", self.linkvec,
@@ -43,9 +44,13 @@ local types = {
 
     s.field("repeat_trigger_count", self.repeat_count, 1,
       doc="Number of times to send each trigger decision (for overlapping trigger tests)"),
-
+      
     s.field("stop_burst_count", self.repeat_count, 0,
       doc="Number of triggers to send ~simultaneously at stop (for queue draining tests)"),
+
+    s.field("initial_token_count", self.token_count, 0,
+      doc="Number of trigger tokens to start the run with"),
+
 
   ], doc="TriggerDecisionEmulator configuration parameters"),
 

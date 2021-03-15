@@ -95,8 +95,6 @@ private:
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecisionToken>> m_token_source;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
-  static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP = 0xffffffffffffffff;
-
   // Variables controlling how we produce triggers
 
   // Triggers are produced for timestamps:
@@ -137,6 +135,7 @@ private:
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
   std::atomic<int> m_tokens;
+  int m_initial_tokens;
   std::mutex m_open_trigger_decisions_mutex;
   std::set<dfmessages::trigger_number_t> m_open_trigger_decisions;
   // paused state, equivalent to inhibited
