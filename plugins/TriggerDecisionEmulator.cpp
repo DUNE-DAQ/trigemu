@@ -105,6 +105,7 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   m_repeat_trigger_count = params.repeat_trigger_count;
 
   m_stop_burst_count = params.stop_burst_count;
+  m_initial_tokens = params.initial_token_count;
 
   m_links.clear();
   for (auto const& link : params.links) {
@@ -129,7 +130,7 @@ TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
   m_inhibited.store(false);
   m_running_flag.store(true);
 
-  m_tokens.store(0);
+  m_tokens.store(m_initial_tokens);
   m_open_trigger_decisions.clear();
 
   m_timestamp_estimator.reset(new TimestampEstimator(m_time_sync_source, m_clock_frequency_hz));
@@ -223,7 +224,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
   m_inhibited_trigger_count_tot.store(0);
 
   // Wait for there to be a valid timestamp estimate before we start
-  while (m_running_flag.load() && m_timestamp_estimator->get_timestamp_estimate() == INVALID_TIMESTAMP) {
+  while (m_running_flag.load() &&
+         m_timestamp_estimator->get_timestamp_estimate() == dfmessages::TypeDefaults::s_invalid_timestamp) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
@@ -245,7 +247,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
   while (true) {
     while (m_running_flag.load() &&
            (m_timestamp_estimator->get_timestamp_estimate() < (next_trigger_timestamp + trigger_delay_ticks_) ||
-            m_timestamp_estimator->get_timestamp_estimate() == INVALID_TIMESTAMP)) {
+            m_timestamp_estimator->get_timestamp_estimate() == dfmessages::TypeDefaults::s_invalid_timestamp)) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     if (!m_running_flag.load())

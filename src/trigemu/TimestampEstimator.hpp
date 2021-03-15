@@ -33,10 +33,8 @@ public:
 private:
   void estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source);
 
-  static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP = 0xffffffffffffffff;
-
   // The estimate of the current timestamp
-  std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ INVALID_TIMESTAMP };
+  std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ dfmessages::TypeDefaults::s_invalid_timestamp };
 
   std::atomic<bool> m_running_flag{ false };
   uint64_t m_clock_frequency_hz; // NOLINT

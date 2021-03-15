@@ -35,12 +35,12 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
   // slightly delay us getting to the point where we actually start
   // making the timestamp estimate
   while (time_sync_source->can_pop()) {
-    dfmessages::TimeSync t{ INVALID_TIMESTAMP };
+    dfmessages::TimeSync t{ dfmessages::TypeDefaults::s_invalid_timestamp };
     time_sync_source->pop(t);
   }
 
-  dfmessages::TimeSync most_recent_timesync{ INVALID_TIMESTAMP };
-  m_current_timestamp_estimate.store(INVALID_TIMESTAMP);
+  dfmessages::TimeSync most_recent_timesync{ dfmessages::TypeDefaults::s_invalid_timestamp };
+  m_current_timestamp_estimate.store(dfmessages::TypeDefaults::s_invalid_timestamp);
 
   int i = 0;
 
@@ -50,18 +50,19 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
   while (m_running_flag.load()) {
     // First, update the latest timestamp
     while (time_sync_source->can_pop()) {
-      dfmessages::TimeSync t{ INVALID_TIMESTAMP };
+      dfmessages::TimeSync t{ dfmessages::TypeDefaults::s_invalid_timestamp };
       time_sync_source->pop(t);
       dfmessages::timestamp_t estimate = m_current_timestamp_estimate.load();
       dfmessages::timestamp_diff_t diff = estimate - t.daq_time;
       TLOG_DEBUG(10) << "Got a TimeSync timestamp = " << t.daq_time << ", system time = " << t.system_time
                      << " when current timestamp estimate was " << estimate << ". diff=" << diff;
-      if (most_recent_timesync.daq_time == INVALID_TIMESTAMP || t.daq_time > most_recent_timesync.daq_time) {
+      if (most_recent_timesync.daq_time == dfmessages::TypeDefaults::s_invalid_timestamp ||
+          t.daq_time > most_recent_timesync.daq_time) {
         most_recent_timesync = t;
       }
     }
 
-    if (most_recent_timesync.daq_time != INVALID_TIMESTAMP) {
+    if (most_recent_timesync.daq_time != dfmessages::TypeDefaults::s_invalid_timestamp) {
       // Update the current timestamp estimate, based on the most recently-read TimeSync
       using namespace std::chrono;
       // std::chrono is the worst
@@ -87,7 +88,7 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
   // anything with the TimeSync messages, so we just drop them on the
   // floor
   while (time_sync_source->can_pop()) {
-    dfmessages::TimeSync t{ INVALID_TIMESTAMP };
+    dfmessages::TimeSync t{ dfmessages::TypeDefaults::s_invalid_timestamp };
     time_sync_source->pop(t);
   }
 }
