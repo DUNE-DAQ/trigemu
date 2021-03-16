@@ -1,37 +1,31 @@
 # Set moo schema search path
 from dunedaq.env import get_moo_model_path
 import moo.io
-
-# PAR 2021-02-17
-#
-# This is a hideous hack to work around
-# https://github.com/DUNE-DAQ/daq-cmake/issues/32 . Our test schema
-# are not installed into the build directory, and so they're not in
-# moo's path. So we find the *source* test/schema directory relative
-# to the current file, and put that in moo's path. It would have been
-# marginally less hideous to use $DBT_AREA_ROOT, but that variable is
-# not exported, so we can't see it.
-#
-# When the daq-cmake bug above is fixed, this can go away
-import pathlib
-moo.io.default_load_path = [pathlib.Path(__file__).absolute().parents[2] / "test" / "schema"] + get_moo_model_path()
+moo.io.default_load_path = get_moo_model_path()
 
 # Load configuration types
 import moo.otypes
-moo.otypes.load_types('appfwk-cmd-schema.jsonnet')
-moo.otypes.load_types('trigemu-TriggerDecisionEmulator-schema.jsonnet')
-moo.otypes.load_types('trigemu-FakeTimeSyncSource-schema.jsonnet')
-moo.otypes.load_types('trigemu-FakeInhibitGenerator-schema.jsonnet')
-moo.otypes.load_types('trigemu-FakeTokenGenerator-schema.jsonnet')
+
+moo.otypes.load_types('rcif/cmd.jsonnet')
+moo.otypes.load_types('appfwk/cmd.jsonnet')
+moo.otypes.load_types('appfwk/app.jsonnet')
+
+moo.otypes.load_types('trigemu/triggerdecisionemulator.jsonnet')
+moo.otypes.load_types('trigemu/faketimesyncsource.jsonnet')
+moo.otypes.load_types('trigemu/fakeinhibitgenerator.jsonnet')
+moo.otypes.load_types('trigemu/faketokengenerator.jsonnet')
 
 # Import new types
-import dunedaq.appfwk.cmd as cmd # AddressedCmd,
+import dunedaq.cmdlib.cmd as basecmd # AddressedCmd, 
+import dunedaq.rcif.cmd as rccmd # AddressedCmd, 
+import dunedaq.appfwk.cmd as cmd # AddressedCmd, 
+import dunedaq.appfwk.app as app # AddressedCmd, 
 import dunedaq.trigemu.triggerdecisionemulator as tde
 import dunedaq.trigemu.faketimesyncsource as ftss
 import dunedaq.trigemu.fakeinhibitgenerator as fig
 import dunedaq.trigemu.faketokengenerator as ftg
 
-from appfwk.utils import mcmd, mspec
+from appfwk.utils import mcmd, mrccmd, mspec
 
 import json
 import math
@@ -50,51 +44,56 @@ def generate(NUMBER_OF_DATA_PRODUCERS=2,
     trigger_interval_ticks = math.floor((1 / TRIGGER_RATE_HZ) * CLOCK_SPEED_HZ / DATA_RATE_SLOWDOWN_FACTOR)
 
     # Define modules and queues
-    queue_bare_specs = [cmd.QueueSpec(inst="time_sync_q", kind='FollyMPMCQueue', capacity=100),
-            cmd.QueueSpec(inst="token_q", kind="FollySPSCQueue", capacity=20)]
+    queue_bare_specs = [app.QueueSpec(inst="time_sync_q", kind='FollyMPMCQueue', capacity=100),
+            app.QueueSpec(inst="token_q", kind="FollySPSCQueue", capacity=20)]
 
     if INHIBITS_ENABLED:
-        queue_bare_specs += [cmd.QueueSpec(inst="trigger_inhibit_q", kind='FollySPSCQueue', capacity=20)]
+        queue_bare_specs += [app.QueueSpec(inst="trigger_inhibit_q", kind='FollySPSCQueue', capacity=20)]
     if TOKENS_ENABLED:
-        queue_bare_specs += [cmd.QueueSpec(inst="trigger_decision_q", kind='FollySPSCQueue', capacity=20)]
+        queue_bare_specs += [app.QueueSpec(inst="trigger_decision_q", kind='FollySPSCQueue', capacity=20)]
     
 
     # Only needed to reproduce the same order as when using jsonnet
-    queue_specs = cmd.QueueSpecs(sorted(queue_bare_specs, key=lambda x: x.inst))
+    queue_specs = app.QueueSpecs(sorted(queue_bare_specs, key=lambda x: x.inst))
 
 
-    mod_specs = [mspec("ftss", "FakeTimeSyncSource", [cmd.QueueInfo(name="time_sync_sink", inst="time_sync_q", dir="output")]),
-        mspec("frr", "FakeRequestReceiver", [cmd.QueueInfo(name="trigger_decision_source", inst="trigger_decision_q", dir="input")])] 
+    mod_specs = [mspec("ftss", "FakeTimeSyncSource", [app.QueueInfo(name="time_sync_sink", inst="time_sync_q", dir="output")]),
+        mspec("frr", "FakeRequestReceiver", [app.QueueInfo(name="trigger_decision_source", inst="trigger_decision_q", dir="input")])] 
 
     if INHIBITS_ENABLED:
-        mod_specs += [mspec("fig", "FakeInhibitGenerator", [cmd.QueueInfo(name="trigger_inhibit_sink", inst="trigger_inhibit_q", dir="output")])]
+        mod_specs += [mspec("fig", "FakeInhibitGenerator", [app.QueueInfo(name="trigger_inhibit_sink", inst="trigger_inhibit_q", dir="output")])]
         if not TOKENS_ENABLED:
-            mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
-                        cmd.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
-                        cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
+            mod_specs += [mspec("tde", "TriggerDecisionEmulator", [app.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
+                        app.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
+                        app.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
     if TOKENS_ENABLED:
-        mod_specs += [mspec("ftg", "FakeTokenGenerator", [cmd.QueueInfo(name="token_sink", inst="token_q", dir="output")]),]
+        mod_specs += [mspec("ftg", "FakeTokenGenerator", [app.QueueInfo(name="token_sink", inst="token_q", dir="output")]),]
         if not INHIBITS_ENABLED:
-            mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
-                        cmd.QueueInfo(name="token_source", inst="token_q", dir="input"),
-                        cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
+            mod_specs += [mspec("tde", "TriggerDecisionEmulator", [app.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
+                        app.QueueInfo(name="token_source", inst="token_q", dir="input"),
+                        app.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
     if TOKENS_ENABLED and INHIBITS_ENABLED:
-            mod_specs += [mspec("tde", "TriggerDecisionEmulator", [cmd.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
-                        cmd.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
-                        cmd.QueueInfo(name="token_source", inst="token_q", dir="input"),
-                        cmd.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
+            mod_specs += [mspec("tde", "TriggerDecisionEmulator", [app.QueueInfo(name="time_sync_source", inst="time_sync_q", dir="input"),
+                        app.QueueInfo(name="trigger_inhibit_source", inst="trigger_inhibit_q", dir="input"),
+                        app.QueueInfo(name="token_source", inst="token_q", dir="input"),
+                        app.QueueInfo(name="trigger_decision_sink", inst="trigger_decision_q", dir="output")])]
 
 
-    init_specs = cmd.Init(queues=queue_specs, modules=mod_specs)
+    init_specs = app.Init(queues=queue_specs, modules=mod_specs)
 
     jstr = json.dumps(init_specs.pod(), indent=4, sort_keys=True)
     print(jstr)
 
-    initcmd = cmd.Command(id=cmd.CmdId("init"),
-        data=init_specs)
+    initcmd = rccmd.RCCommand(
+        id=basecmd.CmdId("init"),
+        entry_state="NONE",
+        exit_state="INITIAL",
+        data=init_specs
+    )
 
 
-    confcmd = mcmd("conf", [("tde", tde.ConfParams(links=[idx for idx in range(NUMBER_OF_DATA_PRODUCERS)],
+    confcmd =mrccmd("conf", "INITIAL", "CONFIGURED",[
+        ("tde", tde.ConfParams(links=[idx for idx in range(NUMBER_OF_DATA_PRODUCERS)],
                         min_links_in_request=NUMBER_OF_DATA_PRODUCERS,
                         max_links_in_request=NUMBER_OF_DATA_PRODUCERS,
                         min_readout_window_ticks=1200,
@@ -116,33 +115,41 @@ def generate(NUMBER_OF_DATA_PRODUCERS=2,
     jstr = json.dumps(confcmd.pod(), indent=4, sort_keys=True)
     print(jstr)
 
-    startpars = cmd.StartParams(run=RUN_NUMBER)
-    startcmd = mcmd("start", [("frr", startpars), ("tde", startpars), ("ftss",startpars), ("fig", startpars), ("ftg", startpars),])
+    startpars = rccmd.StartParams(run=RUN_NUMBER, trigger_interval_ticks=trigger_interval_ticks)
+    startcmd = mrccmd("start", "CONFIGURED", "RUNNING", [    
+        ("frr", startpars), ("tde", startpars), ("ftss",startpars), ("fig", startpars), ("ftg", startpars),])
 
     jstr = json.dumps(startcmd.pod(), indent=4, sort_keys=True)
     print("=" * 80 + "\nStart\n\n", jstr)
 
-    emptypars = cmd.EmptyParams()
-
-    stopcmd = mcmd("stop", [("tde", emptypars),("frr", emptypars), ("ftss", emptypars), ("fig", emptypars), ("ftg",emptypars)])
+    stopcmd = mrccmd("stop", "RUNNING", "CONFIGURED", [
+        ("tde", None),("frr", None), ("ftss", None), ("fig", None), ("ftg",None)])
 
     jstr = json.dumps(stopcmd.pod(), indent=4, sort_keys=True)
     print("=" * 80 + "\nStop\n\n", jstr)
 
-    pausecmd = mcmd("pause", [("", emptypars)])
+    pausecmd = mrccmd("pause", "RUNNING", "RUNNING", [
+        ("", None)
+    ])
 
     jstr = json.dumps(pausecmd.pod(), indent=4, sort_keys=True)
-    print("=" * 80 + "\nPause\n\n", jstr)
+    print("="*80+"\nPause\n\n", jstr)
 
-    resumecmd = mcmd("resume", [("tde", tde.ResumeParams(trigger_interval_ticks=trigger_interval_ticks))])
+    resumecmd = mrccmd("resume", "RUNNING", "RUNNING", [
+            ("tde", tde.ResumeParams(
+                            trigger_interval_ticks=trigger_interval_ticks
+                        ))
+        ])
 
     jstr = json.dumps(resumecmd.pod(), indent=4, sort_keys=True)
-    print("=" * 80 + "\nResume\n\n", jstr)
+    print("="*80+"\nResume\n\n", jstr)
 
-    scrapcmd = mcmd("scrap", [("", emptypars)])
+    scrapcmd = mrccmd("scrap", "CONFIGURED", "INITIAL", [
+            ("", None)
+        ])
 
     jstr = json.dumps(scrapcmd.pod(), indent=4, sort_keys=True)
-    print("=" * 80 + "\nScrap\n\n", jstr)
+    print("="*80+"\nScrap\n\n", jstr)
 
     # Create a list of commands
     cmd_seq = [initcmd, confcmd, startcmd, stopcmd, pausecmd, resumecmd, scrapcmd]
