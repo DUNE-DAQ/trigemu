@@ -168,6 +168,10 @@ void
 TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
 {
   auto params = resumeobj.get<triggerdecisionemulator::ResumeParams>();
+  if(params.trigger_interval_ticks<=0){
+    ers::fatal(InvalidTriggerInterval(ERS_HERE, params.trigger_interval_ticks));
+    return;
+  }
   m_trigger_interval_ticks.store(params.trigger_interval_ticks);
 
   TLOG() << "******* Triggers RESUMED! *********";
@@ -235,6 +239,9 @@ TriggerDecisionEmulator::send_trigger_decisions()
   }
 
   dfmessages::timestamp_t ts = m_timestamp_estimator->get_timestamp_estimate();
+
+  // This case should have been caught in do_resume()
+  assert(m_trigger_interval_ticks.load() != 0);
 
   TLOG_DEBUG(1) << "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks";
   // Round up to the next multiple of trigger_interval_ticks_
