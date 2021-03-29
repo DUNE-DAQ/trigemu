@@ -1,12 +1,14 @@
 local moo = import "moo.jsonnet";
 local ns = "dunedaq.trigemu.triggerdecisionemulator";
 local s = moo.oschema.schema(ns);
+local nc = moo.oschema.numeric_constraints;
 
 local types = {
   linkid: s.number("link_id", dtype="i4"),
   linkvec : s.sequence("link_vec", self.linkid),
   link_count: s.number("link_count", dtype="i4"),
   ticks: s.number("ticks", dtype="i8"),
+  trigger_interval: s.number("trigger_interval", dtype="i8", constraints=nc(minimum=1)),
   freq: s.number("frequency", dtype="u8"),
   repeat_count: s.number("repeat_count", dtype="i4"),
   token_count: s.number("token_count", dtype="i4"),
@@ -30,7 +32,7 @@ local types = {
     s.field("trigger_window_offset", self.ticks, 1600,
       doc="Offset of trigger window start time in ticks before trigger timestamp"),
 
-    s.field("trigger_interval_ticks", self.ticks, 64000000,
+    s.field("trigger_interval_ticks", self.trigger_interval, 64000000,
       doc="Interval between triggers in 16 ns time ticks (default 1.024 s) "),
 
     s.field("trigger_offset", self.ticks, 0,
@@ -55,7 +57,7 @@ local types = {
   ], doc="TriggerDecisionEmulator configuration parameters"),
 
   resume: s.record("ResumeParams", [
-    s.field("trigger_interval_ticks", self.ticks, 64000000,
+    s.field("trigger_interval_ticks", self.trigger_interval, 64000000,
       doc="Interval between triggers in 16 ns time ticks (default 1.024 s)"),
 
   ], doc="TriggerDecisionEmulator resume parameters"),
