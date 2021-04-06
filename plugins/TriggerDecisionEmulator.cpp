@@ -169,8 +169,7 @@ TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
 {
   auto params = resumeobj.get<triggerdecisionemulator::ResumeParams>();
   if(params.trigger_interval_ticks<=0){
-    ers::fatal(InvalidTriggerInterval(ERS_HERE, params.trigger_interval_ticks));
-    return;
+    throw InvalidTriggerInterval(ERS_HERE, params.trigger_interval_ticks);
   }
   m_trigger_interval_ticks.store(params.trigger_interval_ticks);
 
