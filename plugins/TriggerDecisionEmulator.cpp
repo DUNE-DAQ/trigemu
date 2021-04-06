@@ -23,6 +23,7 @@
 #include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
 
 #include "appfwk/app/Nljs.hpp"
+#include "rcif/cmd/Nljs.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -124,7 +125,12 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 void
 TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
 {
-  m_run_number = startobj.value<dunedaq::dataformats::run_number_t>("run", 0);
+  auto start_pars=startobj.get<dunedaq::rcif::cmd::StartParams>();
+  m_run_number = start_pars.run;
+
+  if(start_pars.trigger_interval_ticks<=0){
+    throw InvalidTriggerInterval(ERS_HERE, start_pars.trigger_interval_ticks);
+  }
 
   m_paused.store(true);
   m_inhibited.store(false);
