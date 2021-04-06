@@ -23,6 +23,7 @@
 #include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
 
 #include "appfwk/app/Nljs.hpp"
+#include "rcif/cmd/Nljs.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -124,7 +125,12 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 void
 TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
 {
-  m_run_number = startobj.value<dunedaq::dataformats::run_number_t>("run", 0);
+  auto start_pars=startobj.get<dunedaq::rcif::cmd::StartParams>();
+  m_run_number = start_pars.run;
+
+  if(start_pars.trigger_interval_ticks<=0){
+    throw InvalidTriggerInterval(ERS_HERE, start_pars.trigger_interval_ticks);
+  }
 
   m_paused.store(true);
   m_inhibited.store(false);
@@ -168,6 +174,9 @@ void
 TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
 {
   auto params = resumeobj.get<triggerdecisionemulator::ResumeParams>();
+  if(params.trigger_interval_ticks<=0){
+    throw InvalidTriggerInterval(ERS_HERE, params.trigger_interval_ticks);
+  }
   m_trigger_interval_ticks.store(params.trigger_interval_ticks);
 
   TLOG() << "******* Triggers RESUMED! *********";
@@ -235,6 +244,9 @@ TriggerDecisionEmulator::send_trigger_decisions()
   }
 
   dfmessages::timestamp_t ts = m_timestamp_estimator->get_timestamp_estimate();
+
+  // This case should have been caught in do_resume()
+  assert(m_trigger_interval_ticks.load() != 0);
 
   TLOG_DEBUG(1) << "Delaying trigger decision sending by " << trigger_delay_ticks_ << " ticks";
   // Round up to the next multiple of trigger_interval_ticks_
