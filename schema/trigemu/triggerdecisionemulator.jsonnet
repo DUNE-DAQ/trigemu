@@ -4,8 +4,16 @@ local s = moo.oschema.schema(ns);
 local nc = moo.oschema.numeric_constraints;
 
 local types = {
-  linkid: s.number("link_id", dtype="i4"),
-  linkvec : s.sequence("link_vec", self.linkid),
+  region_id : s.number("region_id", "u2"),
+  element_id : s.number("element_id", "u4"),
+  system_type : s.string("system_type"),
+
+  geoid : s.record("geoid", [s.field("region", self.region_id, doc="" ),
+    s.field("element", self.element_id, doc="" ),
+    s.field("system", self.system_type, doc="" )],
+    doc="GeoID"),
+
+  linkvec : s.sequence("link_vec", self.geoid),
   link_count: s.number("link_count", dtype="i4"),
   ticks: s.number("ticks", dtype="i8"),
   trigger_interval: s.number("trigger_interval", dtype="i8", constraints=nc(minimum=1)),
