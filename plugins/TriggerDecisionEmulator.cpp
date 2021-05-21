@@ -111,7 +111,8 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
   m_links.clear();
   for (auto const& link : params.links) {
     // For the future: Set APA properly
-    m_links.push_back(dfmessages::GeoID{ dfmessages::GeoID::SystemType::kTPC, 0, static_cast<uint32_t>(link) }); // NOLINT
+    m_links.push_back(
+      dfmessages::GeoID{ dfmessages::GeoID::SystemType::kTPC, 0, static_cast<uint32_t>(link) }); // NOLINT
   }
 
   // Sanity-check the values
@@ -125,10 +126,10 @@ TriggerDecisionEmulator::do_configure(const nlohmann::json& confobj)
 void
 TriggerDecisionEmulator::do_start(const nlohmann::json& startobj)
 {
-  auto start_pars=startobj.get<dunedaq::rcif::cmd::StartParams>();
+  auto start_pars = startobj.get<dunedaq::rcif::cmd::StartParams>();
   m_run_number = start_pars.run;
 
-  if(start_pars.trigger_interval_ticks<=0){
+  if (start_pars.trigger_interval_ticks <= 0) {
     throw InvalidTriggerInterval(ERS_HERE, start_pars.trigger_interval_ticks);
   }
 
@@ -174,7 +175,7 @@ void
 TriggerDecisionEmulator::do_resume(const nlohmann::json& resumeobj)
 {
   auto params = resumeobj.get<triggerdecisionemulator::ResumeParams>();
-  if(params.trigger_interval_ticks<=0){
+  if (params.trigger_interval_ticks <= 0) {
     throw InvalidTriggerInterval(ERS_HERE, params.trigger_interval_ticks);
   }
   m_trigger_interval_ticks.store(params.trigger_interval_ticks);

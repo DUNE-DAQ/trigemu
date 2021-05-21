@@ -75,7 +75,7 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
   // std::chrono is the worst
   auto time_now = system_clock::now().time_since_epoch();
   auto now_system_us = duration_cast<microseconds>(time_now).count();
-  uint64_t now_timestamp = now_system_us / 1000000 * m_clock_frequency_hz;
+  uint64_t now_timestamp = now_system_us / 1000000 * m_clock_frequency_hz; // NOLINT(build/unsigned)
 
   dfmessages::timestamp_t next_timestamp = (now_timestamp / timesync_interval_ticks + 1) * timesync_interval_ticks;
 
