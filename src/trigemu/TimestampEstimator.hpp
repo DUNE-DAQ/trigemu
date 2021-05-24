@@ -15,6 +15,7 @@
 #include "dfmessages/Types.hpp"
 
 #include <atomic>
+#include <memory>
 #include <thread>
 
 namespace dunedaq {
@@ -24,9 +25,14 @@ class TimestampEstimator
 {
 public:
   TimestampEstimator(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source,
-                     uint64_t clock_frequency_hz);
+                     uint64_t clock_frequency_hz); // NOLINT(build/unsigned)
 
   ~TimestampEstimator();
+
+  TimestampEstimator(TimestampEstimator const&) = delete;
+  TimestampEstimator(TimestampEstimator&&) = default;
+  TimestampEstimator& operator=(TimestampEstimator const&) = delete;
+  TimestampEstimator& operator=(TimestampEstimator&&) = default;
 
   dfmessages::timestamp_t get_timestamp_estimate() const { return m_current_timestamp_estimate.load(); }
 

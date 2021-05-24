@@ -5,8 +5,8 @@
  * received with this code.
  */
 
-#ifndef TRIGEMU_TEST_PLUGINS_FAKETIMESYNCSOURCE_HPP_
-#define TRIGEMU_TEST_PLUGINS_FAKETIMESYNCSOURCE_HPP_
+#ifndef TRIGEMU_PLUGINS_FAKETIMESYNCSOURCE_HPP_
+#define TRIGEMU_PLUGINS_FAKETIMESYNCSOURCE_HPP_
 
 #include "appfwk/DAQModule.hpp"
 #include "appfwk/DAQSink.hpp"
@@ -44,9 +44,9 @@ private:
   std::unique_ptr<appfwk::DAQSink<dfmessages::TimeSync>> m_time_sync_sink;
 
   dfmessages::timestamp_t m_sync_interval_ticks;
-  uint64_t m_clock_frequency_hz;
+  uint64_t m_clock_frequency_hz; // NOLINT(build/unsigned)
 };
 
 } // namespace dunedaq::trigemu
 
-#endif // TRIGEMU_TEST_PLUGINS_FAKETIMESYNCSOURCE_HPP_
+#endif // TRIGEMU_PLUGINS_FAKETIMESYNCSOURCE_HPP_

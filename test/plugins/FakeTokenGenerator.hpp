@@ -5,8 +5,8 @@
  * received with this code.
  */
 
-#ifndef TRIGEMU_TEST_PLUGINS_FAKEINHIBITGENERATOR_HPP_
-#define TRIGEMU_TEST_PLUGINS_FAKEINHIBITGENERATOR_HPP_
+#ifndef TRIGEMU_TEST_PLUGINS_FAKETOKENGENERATOR_HPP_
+#define TRIGEMU_TEST_PLUGINS_FAKETOKENGENERATOR_HPP_
 
 #include "appfwk/DAQModule.hpp"
 #include "appfwk/DAQSink.hpp"
@@ -51,4 +51,4 @@ private:
 
 } // namespace dunedaq::trigemu
 
-#endif // TRIGEMU_TEST_PLUGINS_FAKEINHIBITGENERATOR_HPP_
+#endif // TRIGEMU_TEST_PLUGINS_FAKETOKENGENERATOR_HPP_

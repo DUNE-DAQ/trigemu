@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <random>
 #include <string>
+#include <utility>
 
 namespace dunedaq::trigemu {
 

@@ -1,14 +1,24 @@
+/**
+ * @file TimestampEstimator.cpp
+ *
+ * This is part of the DUNE DAQ Software Suite, copyright 2020.
+ * Licensing/copyright details are in the COPYING file that you should have
+ * received with this code.
+ */
+
 #include "trigemu/TimestampEstimator.hpp"
 #include "trigemu/Issues.hpp"
 
 #include "logging/Logging.hpp"
+
+#include <memory>
 
 #define TRACE_NAME "TimestampEstimator" // NOLINT
 
 namespace dunedaq::trigemu {
 
 TimestampEstimator::TimestampEstimator(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source,
-                                       uint64_t clock_frequency_hz)
+                                       uint64_t clock_frequency_hz) // NOLINT(build/unsigned)
   : m_running_flag(true)
   , m_clock_frequency_hz(clock_frequency_hz)
   , m_estimator_thread(&TimestampEstimator::estimator_thread_fn, this, std::ref(time_sync_source))
@@ -92,4 +102,4 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
     time_sync_source->pop(t);
   }
 }
-} // dunedaq::trigemu
+} // namespace dunedaq::trigemu
