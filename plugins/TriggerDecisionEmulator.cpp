@@ -20,7 +20,7 @@
 #include "trigemu/Issues.hpp"
 #include "trigemu/TimestampEstimator.hpp"
 #include "trigemu/triggerdecisionemulator/Nljs.hpp"
-#include "trigemu/triggerdecisionemulatorinfo/Nljs.hpp"
+#include "trigemu/triggerdecisionemulatorinfo/InfoNljs.hpp"
 
 #include "appfwk/app/Nljs.hpp"
 #include "rcif/cmd/Nljs.hpp"
