@@ -9,7 +9,8 @@ find_package(appfwk REQUIRED)
 find_package(logging REQUIRED)
 find_package(dfmessages REQUIRED)
 
-daq_codegen(*.jsonnet TEMPLATES Structs.hpp.j2 Nljs.hpp.j2 )
+daq_codegen( fakeinhibitgenerator.jsonnet faketimesyncsource.jsonnet faketokengenerator.jsonnet triggerdecisionemulator.jsonnet  TEMPLATES Structs.hpp.j2 Nljs.hpp.j2 )
+daq_codegen( *info.jsonnet DEP_PKGS opmonlib TEMPLATES opmonlib/InfoStructs.hpp.j2 opmonlib/InfoNljs.hpp.j2 )
 
 daq_add_library(TimestampEstimator.cpp LINK_LIBRARIES appfwk::appfwk dfmessages::dfmessages)
 
