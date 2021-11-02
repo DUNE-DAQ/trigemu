@@ -16,7 +16,7 @@
 
 #include "trigemu/TimestampEstimator.hpp"
 
-#include "dataformats/GeoID.hpp"
+#include "daqdataformats/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerDecisionToken.hpp"
@@ -110,7 +110,7 @@ private:
   int trigger_delay_ticks_{ 0 };
 
   // The offset and width of the windows to be requested in the trigger
-  dataformats::timestamp_diff_t m_trigger_window_offset{ 0 };
+  daqdataformats::timestamp_diff_t m_trigger_window_offset{ 0 };
   dfmessages::timestamp_t m_min_readout_window_ticks{ 0 };
   dfmessages::timestamp_t m_max_readout_window_ticks{ 0 };
 
