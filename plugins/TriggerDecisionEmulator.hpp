@@ -11,12 +11,15 @@
  * received with this code.
  */
 
-#ifndef TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
-#define TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
+#ifndef TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
+#define TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
 
-#include "dataformats/GeoID.hpp"
+#include "trigemu/TimestampEstimator.hpp"
+
+#include "daqdataformats/GeoID.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
+#include "dfmessages/TriggerDecisionToken.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
 
@@ -24,24 +27,12 @@
 #include "appfwk/DAQSink.hpp"
 #include "appfwk/DAQSource.hpp"
 
-#include <ers/ers.h>
-
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
 namespace dunedaq {
-
-ERS_DECLARE_ISSUE(trigemu,
-                  InvalidTimeSync,
-                  "An invalid TimeSync message was received",
-                  ERS_EMPTY)
-
-ERS_DECLARE_ISSUE(trigemu,
-                  InvalidConfiguration,
-                  "An invalid configuration object was received",
-                  ERS_EMPTY)
-
 
 namespace trigemu {
 
@@ -61,13 +52,13 @@ public:
   TriggerDecisionEmulator(const TriggerDecisionEmulator&) =
     delete; ///< TriggerDecisionEmulator is not copy-constructible
   TriggerDecisionEmulator& operator=(const TriggerDecisionEmulator&) =
-    delete; ///< TriggerDecisionEmulator is not copy-assignable
-  TriggerDecisionEmulator(TriggerDecisionEmulator&&) =
-    delete; ///< TriggerDecisionEmulator is not move-constructible
+    delete;                                                    ///< TriggerDecisionEmulator is not copy-assignable
+  TriggerDecisionEmulator(TriggerDecisionEmulator&&) = delete; ///< TriggerDecisionEmulator is not move-constructible
   TriggerDecisionEmulator& operator=(TriggerDecisionEmulator&&) =
     delete; ///< TriggerDecisionEmulator is not move-assignable
 
   void init(const nlohmann::json& iniobj) override;
+  void get_info(opmonlib::InfoCollector& ci, int level) override;
 
 private:
   // Commands
@@ -76,24 +67,33 @@ private:
   void do_stop(const nlohmann::json& obj);
   void do_pause(const nlohmann::json& obj);
   void do_resume(const nlohmann::json& obj);
+  void do_scrap(const nlohmann::json& obj);
 
   // Are we inhibited from sending triggers?
   bool triggers_are_inhibited() { return m_inhibited.load(); }
 
   // Thread functions
   void send_trigger_decisions();
-  void estimate_current_timestamp();
+  // void estimate_current_timestamp();
   void read_inhibit_queue();
+  void read_token_queue();
+
+  // ...and the std::threads that hold them
+  std::thread m_send_trigger_decisions_thread;
+  // std::thread m_estimate_current_timestamp_thread;
+  std::thread m_read_inhibit_queue_thread;
+  std::thread m_read_token_queue_thread;
+
+  std::unique_ptr<TimestampEstimator> m_timestamp_estimator;
 
   // Create the next trigger decision
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
-  
+
   // Queue sources and sinks
   std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
   std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
+  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecisionToken>> m_token_source;
   std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
-
-  static constexpr dfmessages::timestamp_t INVALID_TIMESTAMP=0xffffffffffffffff;
 
   // Variables controlling how we produce triggers
 
@@ -105,33 +105,39 @@ private:
   // `m_trigger_delay_ticks` ticks after the timestamp t is
   // estimated to occur, so we can try not to emit trigger requests
   // for data that's in the future
-  dfmessages::timestamp_t m_trigger_offset{0};
-  std::atomic<dfmessages::timestamp_t> m_trigger_interval_ticks{0};
-  int trigger_delay_ticks_{0};
-  
+  dfmessages::timestamp_t m_trigger_offset{ 0 };
+  std::atomic<dfmessages::timestamp_t> m_trigger_interval_ticks{ 0 };
+  int trigger_delay_ticks_{ 0 };
+
   // The offset and width of the windows to be requested in the trigger
-  dfmessages::timestamp_diff_t m_trigger_window_offset{0};
-  dfmessages::timestamp_t m_min_readout_window_ticks{0};
-  dfmessages::timestamp_t m_max_readout_window_ticks{0};
+  daqdataformats::timestamp_diff_t m_trigger_window_offset{ 0 };
+  dfmessages::timestamp_t m_min_readout_window_ticks{ 0 };
+  dfmessages::timestamp_t m_max_readout_window_ticks{ 0 };
 
   // The trigger type for the trigger requests
-  dfmessages::trigger_type_t m_trigger_type{0xff};
+  dfmessages::trigger_type_t m_trigger_type{ 0xff };
 
   // The link IDs which should be read out in the trigger decision
   std::vector<dfmessages::GeoID> m_links;
   int m_min_links_in_request;
   int m_max_links_in_request;
 
-  int m_repeat_trigger_count{1};
-  
-  uint64_t m_clock_frequency_hz;
-  
-  // The estimate of the current timestamp
-  std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{INVALID_TIMESTAMP};
+  int m_repeat_trigger_count{ 1 };
 
+  uint64_t m_clock_frequency_hz; // NOLINT
+
+  // At stop, send this number of triggers in one go. The idea here is
+  // to put lots of triggers into the system to check that the stop
+  // sequence is clean, in the sense of all the in-flight triggers
+  // getting to disk
+  int m_stop_burst_count{ 0 };
 
   // The most recent inhibit status we've seen (true = inhibited)
   std::atomic<bool> m_inhibited;
+  std::atomic<int> m_tokens;
+  int m_initial_tokens;
+  std::mutex m_open_trigger_decisions_mutex;
+  std::set<dfmessages::trigger_number_t> m_open_trigger_decisions;
   // paused state, equivalent to inhibited
   std::atomic<bool> m_paused;
 
@@ -139,14 +145,20 @@ private:
 
   dfmessages::run_number_t m_run_number;
 
-  std::vector<std::thread> m_threads;
-  std::atomic<bool> m_running_flag;
+  // Are we in the RUNNING state?
+  std::atomic<bool> m_running_flag{ false };
+  // Are we in a configured state, ie after conf and before scrap?
+  std::atomic<bool> m_configured_flag{ false };
+
+  std::atomic<uint64_t> m_trigger_count{ 0 };               // NOLINT(build/unsigned)
+  std::atomic<uint64_t> m_trigger_count_tot{ 0 };           // NOLINT(build/unsigned)
+  std::atomic<uint64_t> m_inhibited_trigger_count{ 0 };     // NOLINT(build/unsigned)
+  std::atomic<uint64_t> m_inhibited_trigger_count_tot{ 0 }; // NOLINT(build/unsigned)
 };
 } // namespace trigemu
 } // namespace dunedaq
 
-#endif // TRIGEMU_SRC_TRIGGERDECISIONEMULATOR_HPP_
-
+#endif // TRIGEMU_PLUGINS_TRIGGERDECISIONEMULATOR_HPP_
 
 // Local Variables:
 // c-basic-offset: 2
