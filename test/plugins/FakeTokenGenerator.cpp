@@ -56,7 +56,7 @@ FakeTokenGenerator::do_configure(const nlohmann::json& confobj)
 void
 FakeTokenGenerator::do_start(const nlohmann::json& startobj)
 {
-  m_run_number = startobj.value<dunedaq::dataformats::run_number_t>("run", 0);
+  m_run_number = startobj.value<dunedaq::daqdataformats::run_number_t>("run", 0);
   m_running_flag.store(true);
   m_token_thread = std::thread(&FakeTokenGenerator::send_tokens, this);
   pthread_setname_np(m_token_thread.native_handle(), "ftg-token-gen");
