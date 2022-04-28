@@ -9,7 +9,7 @@
 #define TRIGEMU_TEST_PLUGINS_FAKEREQUESTRECEIVER_HPP_
 
 #include "appfwk/DAQModule.hpp"
-#include "appfwk/DAQSource.hpp"
+#include "iomanager/Receiver.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 
 #include <memory>
@@ -32,7 +32,7 @@ public:
 
 private:
   // Data Source
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecision>> m_trigger_decision_source;
+  std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TriggerDecision>> m_trigger_decision_source;
   // Commands
   void do_start(const nlohmann::json& obj);
   void do_stop(const nlohmann::json& obj);

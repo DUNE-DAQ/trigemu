@@ -24,8 +24,8 @@
 #include "dfmessages/Types.hpp"
 
 #include "appfwk/DAQModule.hpp"
-#include "appfwk/DAQSink.hpp"
-#include "appfwk/DAQSource.hpp"
+#include "iomanager/Sender.hpp"
+#include "iomanager/Receiver.hpp"
 
 #include <memory>
 #include <set>
@@ -90,10 +90,10 @@ private:
   dfmessages::TriggerDecision create_decision(dfmessages::timestamp_t timestamp);
 
   // Queue sources and sinks
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>> m_time_sync_source;
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
-  std::unique_ptr<appfwk::DAQSource<dfmessages::TriggerDecisionToken>> m_token_source;
-  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecision>> m_trigger_decision_sink;
+  std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TimeSync>> m_time_sync_source;
+  std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TriggerInhibit>> m_trigger_inhibit_source;
+  std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TriggerDecisionToken>> m_token_source;
+  std::shared_ptr<iomanager::SenderConcept<dfmessages::TriggerDecision>> m_trigger_decision_sink;
 
   // Variables controlling how we produce triggers
 

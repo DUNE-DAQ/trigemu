@@ -7,6 +7,8 @@
 #include "FakeRequestReceiver.hpp"
 #include "appfwk/app/Nljs.hpp"
 #include "dfmessages/TriggerDecision.hpp"
+#include "appfwk/DAQModuleHelper.hpp"
+#include "iomanager/IOManager.hpp"
 
 #include "logging/Logging.hpp"
 
@@ -26,11 +28,9 @@ void
 FakeRequestReceiver::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  for (const auto& qi : ini.qinfos) {
-    if (qi.name == "trigger_decision_source") {
-      m_trigger_decision_source.reset(new appfwk::DAQSource<dfmessages::TriggerDecision>(qi.inst));
-    }
-  }
+  iomanager::IOManager iom;
+  auto qi = appfwk::connection_inst(iniobj, "trigger_decision_source");
+  m_trigger_decision_source = iom.get_receiver<dfmessages::TriggerDecision>(qi);
 }
 
 void
@@ -54,14 +54,14 @@ FakeRequestReceiver::run()
 {
   int dec_counter = 0;
   while (m_running_flag.load()) {
-    if (m_trigger_decision_source->can_pop()) {
+    try{
       dfmessages::TriggerDecision decision;
-      m_trigger_decision_source->pop(decision);
+      decision = m_trigger_decision_source->receive(std::chrono::milliseconds(10));
       ++dec_counter;
       if (dec_counter % 10 == 0) {
         TLOG_DEBUG(0) << "Received " << dec_counter << " trigger decisions.";
       }
-    } else {
+    } catch (iomanager::TimeoutExpired const&) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }

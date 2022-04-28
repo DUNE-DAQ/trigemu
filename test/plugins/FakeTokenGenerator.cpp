@@ -10,6 +10,7 @@
 
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
+#include "iomanager/IOManager.hpp"
 
 #include "appfwk/app/Nljs.hpp"
 
@@ -37,9 +38,10 @@ void
 FakeTokenGenerator::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  for (const auto& qi : ini.qinfos) {
+      iomanager::IOManager iom;
+  for (const auto& qi : ini.conn_refs) {
     if (qi.name == "token_sink") {
-      m_token_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecisionToken>(qi.inst));
+      m_token_sink = iom.get_sender<dfmessages::TriggerDecisionToken>(qi);
     }
   }
 }
@@ -79,14 +81,14 @@ FakeTokenGenerator::send_tokens()
     dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
     TLOG_DEBUG(0) << "Pushing initial token with run number " << m_run_number << " onto queue";
-    m_token_sink->push(std::move(token));
+    m_token_sink->send(token, iomanager::Sender::s_block);
   }
 
   while (m_running_flag.load()) {
     dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
     TLOG_DEBUG(0) << "Pushing token with run number " << m_run_number << " onto queue";
-    m_token_sink->push(std::move(token));
+    m_token_sink->send(token, iomanager::Sender::s_block);
     int interval = static_cast<int>(std::round(distn(random_engine)));
     if (interval <= 0)
       interval = 1;

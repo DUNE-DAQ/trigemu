@@ -17,8 +17,9 @@
 
 namespace dunedaq::trigemu {
 
-TimestampEstimator::TimestampEstimator(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source,
-                                       uint64_t clock_frequency_hz) // NOLINT(build/unsigned)
+TimestampEstimator::TimestampEstimator(
+  std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TimeSync>>& time_sync_source,
+  uint64_t clock_frequency_hz) // NOLINT(build/unsigned)
   : m_running_flag(true)
   , m_clock_frequency_hz(clock_frequency_hz)
   , m_estimator_thread(&TimestampEstimator::estimator_thread_fn, this, std::ref(time_sync_source))
@@ -33,7 +34,8 @@ TimestampEstimator::~TimestampEstimator()
 }
 
 void
-TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source)
+TimestampEstimator::estimator_thread_fn(
+  std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TimeSync>>& time_sync_source)
 {
   // This loop is a hack to deal with the fact that there might be
   // leftover TimeSync messages from the previous run, because
@@ -44,9 +46,13 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
   // which we drop on the floor. This is fairly harmless: it'll just
   // slightly delay us getting to the point where we actually start
   // making the timestamp estimate
-  while (time_sync_source->can_pop()) {
-    dfmessages::TimeSync t{ dfmessages::TypeDefaults::s_invalid_timestamp };
-    time_sync_source->pop(t);
+  try {
+    while (true) {
+      dfmessages::TimeSync t{ dfmessages::TypeDefaults::s_invalid_timestamp };
+      t = time_sync_source->receive(std::chrono::milliseconds(1));
+    }
+  } catch (iomanager::TimeoutExpired&) {
+    // Nothing left in the queue
   }
 
   dfmessages::TimeSync most_recent_timesync{ dfmessages::TypeDefaults::s_invalid_timestamp };
@@ -59,9 +65,8 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
   // largest timestamp "wins"
   while (m_running_flag.load()) {
     // First, update the latest timestamp
-    while (time_sync_source->can_pop()) {
-      dfmessages::TimeSync t{ dfmessages::TypeDefaults::s_invalid_timestamp };
-      time_sync_source->pop(t);
+    try {
+      auto t = time_sync_source->receive(std::chrono::milliseconds(1));
       dfmessages::timestamp_t estimate = m_current_timestamp_estimate.load();
       dfmessages::timestamp_diff_t diff = estimate - t.daq_time;
       TLOG_DEBUG(10) << "Got a TimeSync timestamp = " << t.daq_time << ", system time = " << t.system_time
@@ -70,6 +75,7 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
           t.daq_time > most_recent_timesync.daq_time) {
         most_recent_timesync = t;
       }
+    } catch (iomanager::TimeoutExpired&) {
     }
 
     if (most_recent_timesync.daq_time != dfmessages::TypeDefaults::s_invalid_timestamp) {
@@ -97,9 +103,10 @@ TimestampEstimator::estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmess
   // Drain the input queue as best we can. We're not going to do
   // anything with the TimeSync messages, so we just drop them on the
   // floor
-  while (time_sync_source->can_pop()) {
-    dfmessages::TimeSync t{ dfmessages::TypeDefaults::s_invalid_timestamp };
-    time_sync_source->pop(t);
+  try {
+    while (true)
+      time_sync_source->receive(std::chrono::milliseconds(1));
+  } catch (iomanager::TimeoutExpired&) {
   }
 }
 } // namespace dunedaq::trigemu

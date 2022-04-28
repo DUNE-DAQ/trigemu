@@ -12,6 +12,7 @@
 
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/Types.hpp"
+#include "iomanager/IOManager.hpp"
 
 #include "trigemu/faketimesyncsource/Nljs.hpp"
 #include "trigemu/faketimesyncsource/Structs.hpp"
@@ -35,9 +36,10 @@ void
 FakeTimeSyncSource::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  for (const auto& qi : ini.qinfos) {
+  iomanager::IOManager iom;
+  for (const auto& qi : ini.conn_refs) {
     if (qi.name == "time_sync_sink") {
-      m_time_sync_sink.reset(new appfwk::DAQSink<dfmessages::TimeSync>(qi.inst));
+      m_time_sync_sink = iom.get_sender<dfmessages::TimeSync>(qi);
     }
   }
 }
@@ -90,7 +92,8 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
     if (!m_running_flag.load())
       break;
     TLOG_DEBUG(1) << "Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us;
-    m_time_sync_sink->push(dfmessages::TimeSync(now_timestamp, now_system_us));
+    dfmessages::TimeSync now(now_timestamp, now_system_us);
+    m_time_sync_sink->send(now, std::chrono::milliseconds(1));
 
     next_timestamp += timesync_interval_ticks;
   }

@@ -11,10 +11,12 @@
 
 #include "daqdataformats/ComponentRequest.hpp"
 
+#include "appfwk/DAQModuleHelper.hpp"
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/TriggerDecision.hpp"
 #include "dfmessages/TriggerInhibit.hpp"
 #include "dfmessages/Types.hpp"
+#include "iomanager/IOManager.hpp"
 #include "logging/Logging.hpp"
 
 #include "trigemu/Issues.hpp"
@@ -57,20 +59,13 @@ void
 TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  for (const auto& qi : ini.qinfos) {
-    if (qi.name == "time_sync_source") {
-      m_time_sync_source.reset(new appfwk::DAQSource<dfmessages::TimeSync>(qi.inst));
-    }
-    if (qi.name == "trigger_inhibit_source") {
-      m_trigger_inhibit_source.reset(new appfwk::DAQSource<dfmessages::TriggerInhibit>(qi.inst));
-    }
-    if (qi.name == "trigger_decision_sink") {
-      m_trigger_decision_sink.reset(new appfwk::DAQSink<dfmessages::TriggerDecision>(qi.inst));
-    }
-    if (qi.name == "token_source") {
-      m_token_source.reset(new appfwk::DAQSource<dfmessages::TriggerDecisionToken>(qi.inst));
-    }
-  }
+  iomanager::IOManager iom;
+  auto qi = appfwk::connection_index(
+    iniobj, { "time_sync_source", "trigger_inhibit_source", "trigger_decision_sink", "token_source" });
+  m_time_sync_source = iom.get_receiver<dfmessages::TimeSync>(qi["time_sync_source"]);
+  m_trigger_inhibit_source = iom.get_receiver<dfmessages::TriggerInhibit>(qi["trigger_inhibit_source"]);
+  m_trigger_decision_sink = iom.get_sender<dfmessages::TriggerDecision>(qi["trigger_decision_sink"]);
+  m_token_source = iom.get_receiver<dfmessages::TriggerDecisionToken>(qi["token_source"]);
 }
 
 void
@@ -275,7 +270,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
         TLOG_DEBUG(1) << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate()
                       << ", pushing a decision with triggernumber " << decision.trigger_number << " timestamp "
                       << decision.trigger_timestamp << " number of links " << decision.components.size();
-        m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
+        m_trigger_decision_sink->send(decision, std::chrono::milliseconds(10));
         std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
         m_open_trigger_decisions.insert(decision.trigger_number);
         decision.trigger_number++;
@@ -307,7 +302,7 @@ TriggerDecisionEmulator::send_trigger_decisions()
     dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
     for (int i = 0; i < m_stop_burst_count; ++i) {
-      m_trigger_decision_sink->push(decision, std::chrono::milliseconds(10));
+      m_trigger_decision_sink->send(decision, std::chrono::milliseconds(10));
       decision.trigger_number++;
       m_last_trigger_number++;
       m_trigger_count++;
@@ -335,18 +330,24 @@ TriggerDecisionEmulator::read_inhibit_queue()
   // sent in this run before this loop gets started. That seems
   // unlikely, and the whole way we do inhibits is changing for
   // MiniDAQApp v2 anyway, so I'm leaving it like this
-  while (m_trigger_inhibit_source->can_pop()) {
-    dfmessages::TriggerInhibit ti;
-    m_trigger_inhibit_source->pop(ti);
+  try {
+    while (true) {
+      dfmessages::TriggerInhibit ti;
+      ti = m_trigger_inhibit_source->receive(std::chrono::milliseconds(1));
+    }
+  } catch (iomanager::TimeoutExpired&) {
   }
   while (m_running_flag.load()) {
-    while (m_trigger_inhibit_source->can_pop()) {
-      dfmessages::TriggerInhibit ti;
-      m_trigger_inhibit_source->pop(ti);
-      m_inhibited.store(ti.busy);
-      if (ti.busy) {
-        TLOG() << "Dataflow is BUSY.";
+    try {
+      while (true) {
+        dfmessages::TriggerInhibit ti;
+        ti = m_trigger_inhibit_source->receive(std::chrono::milliseconds(1));
+        m_inhibited.store(ti.busy);
+        if (ti.busy) {
+          TLOG() << "Dataflow is BUSY.";
+        }
       }
+    } catch (iomanager::TimeoutExpired&) {
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -360,26 +361,29 @@ TriggerDecisionEmulator::read_token_queue()
 
   auto open_trigger_report_time = std::chrono::steady_clock::now();
   while (m_running_flag.load()) {
-    while (m_token_source->can_pop()) {
-      dfmessages::TriggerDecisionToken tdt;
-      m_token_source->pop(tdt);
-      TLOG_DEBUG(1) << "Received token with run number " << tdt.run_number << ", current run number " << m_run_number;
-      if (tdt.run_number == m_run_number) {
-        m_tokens++;
-        TLOG_DEBUG(1) << "There are now " << m_tokens.load() << " tokens available";
+    try {
 
-        if (tdt.trigger_number != dfmessages::TypeDefaults::s_invalid_trigger_number) {
-          if (m_open_trigger_decisions.count(tdt.trigger_number)) {
-            std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
-            m_open_trigger_decisions.erase(tdt.trigger_number);
-            TLOG_DEBUG(1) << "Token indicates that trigger decision " << tdt.trigger_number
-                          << " has been completed. There are now " << m_open_trigger_decisions.size()
-                          << " triggers in flight";
-          } else {
-            // ERS warning: received token for trigger number I don't recognize
+      while (true) {
+        dfmessages::TriggerDecisionToken tdt = m_token_source->receive(std::chrono::milliseconds(1));
+        TLOG_DEBUG(1) << "Received token with run number " << tdt.run_number << ", current run number " << m_run_number;
+        if (tdt.run_number == m_run_number) {
+          m_tokens++;
+          TLOG_DEBUG(1) << "There are now " << m_tokens.load() << " tokens available";
+
+          if (tdt.trigger_number != dfmessages::TypeDefaults::s_invalid_trigger_number) {
+            if (m_open_trigger_decisions.count(tdt.trigger_number)) {
+              std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
+              m_open_trigger_decisions.erase(tdt.trigger_number);
+              TLOG_DEBUG(1) << "Token indicates that trigger decision " << tdt.trigger_number
+                            << " has been completed. There are now " << m_open_trigger_decisions.size()
+                            << " triggers in flight";
+            } else {
+              // ERS warning: received token for trigger number I don't recognize
+            }
           }
         }
       }
+    } catch (iomanager::TimeoutExpired&) {
     }
     if (!m_paused && !m_open_trigger_decisions.empty()) {
 
