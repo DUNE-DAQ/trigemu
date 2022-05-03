@@ -270,7 +270,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
         TLOG_DEBUG(1) << "At timestamp " << m_timestamp_estimator->get_timestamp_estimate()
                       << ", pushing a decision with triggernumber " << decision.trigger_number << " timestamp "
                       << decision.trigger_timestamp << " number of links " << decision.components.size();
-        m_trigger_decision_sink->send(decision, std::chrono::milliseconds(10));
+        dfmessages::TriggerDecision decision_copy(decision);
+        m_trigger_decision_sink->send(std::move(decision_copy), std::chrono::milliseconds(10));
         std::lock_guard<std::mutex> lk(m_open_trigger_decisions_mutex);
         m_open_trigger_decisions.insert(decision.trigger_number);
         decision.trigger_number++;
@@ -302,7 +303,8 @@ TriggerDecisionEmulator::send_trigger_decisions()
     dfmessages::TriggerDecision decision = create_decision(next_trigger_timestamp);
 
     for (int i = 0; i < m_stop_burst_count; ++i) {
-      m_trigger_decision_sink->send(decision, std::chrono::milliseconds(10));
+        dfmessages::TriggerDecision decision_copy(decision);
+      m_trigger_decision_sink->send(std::move(decision_copy), std::chrono::milliseconds(10));
       decision.trigger_number++;
       m_last_trigger_number++;
       m_trigger_count++;

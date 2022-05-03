@@ -93,7 +93,7 @@ FakeTimeSyncSource::send_timesyncs(const dfmessages::timestamp_t timesync_interv
       break;
     TLOG_DEBUG(1) << "Sending TimeSync timestamp =" << now_timestamp << ", system time = " << now_system_us;
     dfmessages::TimeSync now(now_timestamp, now_system_us);
-    m_time_sync_sink->send(now, std::chrono::milliseconds(1));
+    m_time_sync_sink->send(std::move(now), std::chrono::milliseconds(1));
 
     next_timestamp += timesync_interval_ticks;
   }

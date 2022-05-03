@@ -81,14 +81,14 @@ FakeTokenGenerator::send_tokens()
     dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
     TLOG_DEBUG(0) << "Pushing initial token with run number " << m_run_number << " onto queue";
-    m_token_sink->send(token, iomanager::Sender::s_block);
+    m_token_sink->send(std::move(token), iomanager::Sender::s_block);
   }
 
   while (m_running_flag.load()) {
     dfmessages::TriggerDecisionToken token;
     token.run_number = m_run_number;
     TLOG_DEBUG(0) << "Pushing token with run number " << m_run_number << " onto queue";
-    m_token_sink->send(token, iomanager::Sender::s_block);
+    m_token_sink->send(std::move(token), iomanager::Sender::s_block);
     int interval = static_cast<int>(std::round(distn(random_engine)));
     if (interval <= 0)
       interval = 1;

@@ -84,7 +84,7 @@ FakeInhibitGenerator::send_inhibits(const std::chrono::milliseconds inhibit_inte
     busy = !busy;
     TLOG_DEBUG(1) << "Sending TriggerInhibit with busy=" << busy;
     dfmessages::TriggerInhibit busyi{ busy };
-    m_trigger_inhibit_sink->send(busyi, std::chrono::milliseconds(1));
+    m_trigger_inhibit_sink->send(std::move(busyi), std::chrono::milliseconds(1));
 
     next_switch_time += inhibit_interval_ms;
   }
