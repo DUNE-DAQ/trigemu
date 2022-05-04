@@ -28,9 +28,8 @@ void
 FakeRequestReceiver::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  iomanager::IOManager iom;
   auto qi = appfwk::connection_inst(iniobj, "trigger_decision_source");
-  m_trigger_decision_source = iom.get_receiver<dfmessages::TriggerDecision>(qi);
+  m_trigger_decision_source = get_iom_receiver<dfmessages::TriggerDecision>(qi);
 }
 
 void

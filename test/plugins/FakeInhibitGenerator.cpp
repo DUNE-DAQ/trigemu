@@ -35,10 +35,9 @@ void
 FakeInhibitGenerator::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  iomanager::IOManager iom;
   for (const auto& qi : ini.conn_refs) {
     if (qi.name == "trigger_inhibit_sink") {
-      m_trigger_inhibit_sink = iom.get_sender<dfmessages::TriggerInhibit>(qi);
+      m_trigger_inhibit_sink = get_iom_sender<dfmessages::TriggerInhibit>(qi);
     }
   }
 }
