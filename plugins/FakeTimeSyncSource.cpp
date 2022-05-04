@@ -36,10 +36,9 @@ void
 FakeTimeSyncSource::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  iomanager::IOManager iom;
   for (const auto& qi : ini.conn_refs) {
     if (qi.name == "time_sync_sink") {
-      m_time_sync_sink = iom.get_sender<dfmessages::TimeSync>(qi);
+      m_time_sync_sink = get_iom_sender<dfmessages::TimeSync>(qi);
     }
   }
 }

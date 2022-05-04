@@ -59,13 +59,12 @@ void
 TriggerDecisionEmulator::init(const nlohmann::json& iniobj)
 {
   auto ini = iniobj.get<appfwk::app::ModInit>();
-  iomanager::IOManager iom;
   auto qi = appfwk::connection_index(
     iniobj, { "time_sync_source", "trigger_inhibit_source", "trigger_decision_sink", "token_source" });
-  m_time_sync_source = iom.get_receiver<dfmessages::TimeSync>(qi["time_sync_source"]);
-  m_trigger_inhibit_source = iom.get_receiver<dfmessages::TriggerInhibit>(qi["trigger_inhibit_source"]);
-  m_trigger_decision_sink = iom.get_sender<dfmessages::TriggerDecision>(qi["trigger_decision_sink"]);
-  m_token_source = iom.get_receiver<dfmessages::TriggerDecisionToken>(qi["token_source"]);
+  m_time_sync_source = get_iom_receiver<dfmessages::TimeSync>(qi["time_sync_source"]);
+  m_trigger_inhibit_source = get_iom_receiver<dfmessages::TriggerInhibit>(qi["trigger_inhibit_source"]);
+  m_trigger_decision_sink = get_iom_sender<dfmessages::TriggerDecision>(qi["trigger_decision_sink"]);
+  m_token_source = get_iom_receiver<dfmessages::TriggerDecisionToken>(qi["token_source"]);
 }
 
 void
