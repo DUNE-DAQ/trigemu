@@ -9,7 +9,7 @@
 #define TRIGEMU_TEST_PLUGINS_FAKEINHIBITGENERATOR_HPP_
 
 #include "appfwk/DAQModule.hpp"
-#include "appfwk/DAQSink.hpp"
+#include "iomanager/Sender.hpp"
 
 #include "dfmessages/TriggerInhibit.hpp"
 
@@ -43,7 +43,7 @@ private:
   std::atomic<bool> m_running_flag;
   std::vector<std::thread> m_threads;
 
-  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerInhibit>> m_trigger_inhibit_sink;
+  std::shared_ptr<iomanager::SenderConcept<dfmessages::TriggerInhibit>> m_trigger_inhibit_sink;
   std::chrono::milliseconds m_inhibit_interval_ms;
 };
 

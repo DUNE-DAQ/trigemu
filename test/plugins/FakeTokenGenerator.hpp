@@ -9,7 +9,7 @@
 #define TRIGEMU_TEST_PLUGINS_FAKETOKENGENERATOR_HPP_
 
 #include "appfwk/DAQModule.hpp"
-#include "appfwk/DAQSink.hpp"
+#include "iomanager/Sender.hpp"
 
 #include "dfmessages/TriggerDecisionToken.hpp"
 
@@ -43,7 +43,7 @@ private:
   dfmessages::run_number_t m_run_number;
   std::thread m_token_thread;
 
-  std::unique_ptr<appfwk::DAQSink<dfmessages::TriggerDecisionToken>> m_token_sink;
+  std::shared_ptr<iomanager::SenderConcept<dfmessages::TriggerDecisionToken>> m_token_sink;
   int m_initial_tokens;
   int m_token_interval_mean_ms;
   int m_token_interval_sigma_ms;

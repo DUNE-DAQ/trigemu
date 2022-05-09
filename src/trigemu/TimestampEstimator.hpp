@@ -9,7 +9,7 @@
 #ifndef TRIGEMU_SRC_TRIGEMU_TIMESTAMPESTIMATOR_HPP_
 #define TRIGEMU_SRC_TRIGEMU_TIMESTAMPESTIMATOR_HPP_
 
-#include "appfwk/DAQSource.hpp"
+#include "iomanager/Receiver.hpp"
 
 #include "dfmessages/TimeSync.hpp"
 #include "dfmessages/Types.hpp"
@@ -24,7 +24,7 @@ namespace trigemu {
 class TimestampEstimator
 {
 public:
-  TimestampEstimator(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source,
+  TimestampEstimator(std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TimeSync>>& time_sync_source,
                      uint64_t clock_frequency_hz); // NOLINT(build/unsigned)
 
   ~TimestampEstimator();
@@ -37,7 +37,7 @@ public:
   dfmessages::timestamp_t get_timestamp_estimate() const { return m_current_timestamp_estimate.load(); }
 
 private:
-  void estimator_thread_fn(std::unique_ptr<appfwk::DAQSource<dfmessages::TimeSync>>& time_sync_source);
+  void estimator_thread_fn(std::shared_ptr<iomanager::ReceiverConcept<dfmessages::TimeSync>>& time_sync_source);
 
   // The estimate of the current timestamp
   std::atomic<dfmessages::timestamp_t> m_current_timestamp_estimate{ dfmessages::TypeDefaults::s_invalid_timestamp };

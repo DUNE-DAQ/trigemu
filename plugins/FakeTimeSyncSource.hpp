@@ -9,7 +9,7 @@
 #define TRIGEMU_PLUGINS_FAKETIMESYNCSOURCE_HPP_
 
 #include "appfwk/DAQModule.hpp"
-#include "appfwk/DAQSink.hpp"
+#include "iomanager/Sender.hpp"
 #include "dfmessages/TimeSync.hpp"
 
 #include <memory>
@@ -41,7 +41,7 @@ private:
   std::atomic<bool> m_running_flag;
   std::vector<std::thread> m_threads;
 
-  std::unique_ptr<appfwk::DAQSink<dfmessages::TimeSync>> m_time_sync_sink;
+  std::shared_ptr<iomanager::SenderConcept<dfmessages::TimeSync>> m_time_sync_sink;
 
   dfmessages::timestamp_t m_sync_interval_ticks;
   uint64_t m_clock_frequency_hz; // NOLINT(build/unsigned)
